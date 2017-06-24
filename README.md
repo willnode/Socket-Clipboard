@@ -1,7 +1,7 @@
 # Socket-Clipboard
 LAN-wide clipboard syncronization tool using .NET socket
 
-![Screenshot](Info/Screenshot.png)
+![Screenshot](Info/Screenshot.jpg)
 
 [Download Binary](Info/SocketCopy.exe)
 
@@ -30,6 +30,8 @@ There is a notification icon for quick hint of send/receive activities. You can 
 File size per packet is limited to 50 MB in order to prevent in case of accidentally send big files over all computer. File size limit can be overrided in code.
 
 When building the software please set the attention to Debug/Release profile because optimized code is different than debuggable code so both can't talk each other.
+
+When a file is send, all client save the file in %temp% folder, and it's not cleaned up automatically. Consider to clean up that temporarty folder occasionally.
 
 If a connection didn't work please check if all clients: has firewall grant, on the same network, on the same port.
 
