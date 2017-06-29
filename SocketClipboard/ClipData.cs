@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Drawing;
 using System.IO;
@@ -24,32 +25,16 @@ namespace SocketClipboard
         {
             switch (Type)
             {
-                case DataType.Text:
-                    Clipboard.SetText((string)Data);
-                    break;
-                case DataType.HTML:
-                    Clipboard.SetText((string)Data, TextDataFormat.Html);
-                    break;
-                case DataType.CSV:
-                    Clipboard.SetText((string)Data, TextDataFormat.CommaSeparatedValue);
-                    break;
-                case DataType.RTF:
-                    Clipboard.SetText((string)Data, TextDataFormat.Rtf);
-                    break;
-                case DataType.Image:
-                    Clipboard.SetImage((Image)Data);
-                    break;
-                case DataType.File:
-                    var buffer = Data as FileBuffer;
-                    var tmp = Utility.SendToTemporary(buffer);
-                    var list = new StringCollection();
-                    list.Add(tmp);
-                    Clipboard.SetFileDropList(list);
+                case DataType.Direct:
+                    Clipboard.SetDataObject((Data as DirectBuffer).Apply());
                     break;
                 case DataType.Files:
-                    var buffers = Data as FileBuffer[];
+                    var buffers = Data as FileBuffer;
                     var lists = Utility.SendToTemporary(buffers);
-                    Clipboard.SetFileDropList(lists);
+                    var data = new DataObject();
+                    data.SetFileDropList(lists);
+                    data.SetData("Preferred DropEffect", DragDropEffects.Move); // Cut
+                    Clipboard.SetDataObject(data);
                     break;
                 default:
                     break;
@@ -58,57 +43,21 @@ namespace SocketClipboard
 
         public static ClipData FromClipboard ()
         {
-            if (Clipboard.ContainsText(TextDataFormat.Html))
-                return new ClipData(DataType.HTML, Clipboard.GetText(TextDataFormat.Html));
-            else if (Clipboard.ContainsText(TextDataFormat.Rtf))
-                return new ClipData(DataType.RTF, Clipboard.GetText(TextDataFormat.Rtf));
-            else if (Clipboard.ContainsText(TextDataFormat.CommaSeparatedValue))
-                return new ClipData(DataType.CSV, Clipboard.GetText(TextDataFormat.CommaSeparatedValue));
-            else if (Clipboard.ContainsText())
-                return new ClipData(DataType.Text, Clipboard.GetText());
-            else if (Clipboard.ContainsImage())
-                return new ClipData(DataType.Image,Clipboard.GetImage());
-            else if (Clipboard.ContainsFileDropList())
-               return Utility.FileDropsToBuffer(Clipboard.GetFileDropList());
+            if (Clipboard.ContainsFileDropList())
+                return Utility.FileDropsToBuffer(Clipboard.GetFileDropList());
             else
-                return null;
-        }
-
-        public long GetSize ()
-        {
-            switch (Type)
-            {
-                case DataType.Text:
-                case DataType.CSV:
-                case DataType.HTML:
-                case DataType.RTF:
-                    return ((string)Data).Length;
-                case DataType.Image:
-                    var sz = ((Image)Data).Size;
-                    return sz.Height * sz.Width;
-                case DataType.File:
-                    return ((FileBuffer)Data).content.Length;
-                default:
-                    return -1;
-            }
+                return new ClipData(DataType.Direct, DirectBuffer.FromClipboard(Clipboard.GetDataObject()));
+                //return null;
         }
 
         public string GetSizeReadable ()
         {
-            switch(Type)
+            switch (Type)
             {
-                case DataType.Text:
-                case DataType.CSV:
-                case DataType.HTML:
-                case DataType.RTF:
-                    return ((string)Data).Length.ToString() + " chr";
-                case DataType.Image:
-                    var sz = ((Image)Data).Size;
-                    return string.Format("{0} x {1} px", sz.Width, sz.Height);
-                case DataType.File:
-                    return Utility.GetBytesReadable(((FileBuffer)Data).content.Length);
+                case DataType.Direct:
+                    return Utility.GetBytesReadable((Data as DirectBuffer).GetSize());          
                 case DataType.Files:
-                    return ((FileBuffer[])Data).Length + " files";
+                    return Utility.GetBytesReadable((Data as FileBuffer).totalSize);
                 default:
                     return "";
             }
@@ -119,31 +68,104 @@ namespace SocketClipboard
     [Serializable]
     public class FileBuffer
     {
-        public byte[] content;
-        public string name;
-        public DateTime modified;
+        public List<byte[]> content = new List<byte[]>();
+        public List<string> name = new List<string>();
+        public List<DateTime> modified = new List<DateTime>();
+        public long totalSize;
         
         public FileBuffer ()
         {
-
         }
 
-        public FileBuffer (FileInfo file)
+        public void Add (FileInfo file)
         {
-            content = File.ReadAllBytes(file.FullName);
-            name = file.Name;
-            modified = file.LastWriteTime;
+            content.Add(File.ReadAllBytes(file.FullName));
+            name.Add(file.Name);
+            modified.Add(file.LastWriteTime);
+            totalSize += file.Length;
+        }
+
+        public override string ToString()
+        {
+            return name.Count >= 1 ? name.Count.ToString() + " files" : "a file";
+        }
+    }
+
+    [Serializable]
+    public class DirectBuffer
+    {
+        // Only serializable formats can get in
+        static string[] dataTypes = new string[]
+        {
+            "HTML Format", "Rich Text Format", "Csv", "UnicodeText", "Text",
+            "DeviceIndepentBitmap", "Bitmap", "TaggedImageFileFormat", "EnhancedMetafile", "MetaFilePict"
+        };
+
+        static string[] readableTypes = new string[]
+        {
+            "HTML", "RTF", "CSV", "Text", "ASCII",
+            "DIB", "Bitmap", "TIFF", "Metafile", "Metafile",
+        };
+
+        public List<string> type = new List<string>();
+        public List<object> data = new List<object>();
+
+        public DirectBuffer ()
+        {
+        }
+
+        public void Add (string type, object data)
+        {
+            this.type.Add(type);
+            this.data.Add(data);
+        }
+
+        public static DirectBuffer FromClipboard (IDataObject data)
+        {
+            var r = new DirectBuffer();
+            foreach (var type in dataTypes)
+            {
+                if (data.GetDataPresent(type, false))
+                    r.Add(type, data.GetData(type, true));
+            }
+            return r.data.Count == 0 ? null : r;
+        }
+
+        public long GetSize ()
+        {
+            long size = 0;
+            foreach (var d in data)
+            {
+                if (d is string)
+                    size = Math.Max(size, (d as string).Length);
+                else if (d is Image)
+                {
+                    var sz = (d as Image).Size;
+                    size = Math.Max(size, sz.Width * sz.Height);
+                }
+            }
+            return size;
+        }
+
+        public DataObject Apply ()
+        {
+            var r = new DataObject();
+            for (int i = 0; i < type.Count; i++)
+            {
+                r.SetData(type[i], data[i]);
+            }
+            return r;
+        }
+
+        public override string ToString()
+        {
+            return "a " + readableTypes[Array.IndexOf(dataTypes, type[0])];
         }
     }
 
     public enum DataType
     {
-        Text = 0,
-        RTF = 1,
-        HTML = 2,
-        CSV = 3,
-        Image = 4,
-        File = 5,
-        Files = 6,
+        Direct = 0,
+        Files = 1,
     }
 }

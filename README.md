@@ -27,7 +27,7 @@ There is a notification icon for quick hint of send/receive activities. You can 
 
 ## Limitation
 
-File size per packet is limited to 50 MB in order to prevent in case of accidentally send big files over all computer. File size limit can be overrided in code.
+File size per packet is default limited to 50 MB in order to prevent in case of accidentally send big files over all computer. File size limit can be overriden via options in context menu.
 
 When building the software please set the attention to Debug/Release profile because optimized code is different than debuggable code so both can't talk each other.
 

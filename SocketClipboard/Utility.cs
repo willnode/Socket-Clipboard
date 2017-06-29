@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Specialized;
 using System.Windows.Forms;
 using System.IO;
@@ -52,37 +53,28 @@ namespace SocketClipboard
             return result;
         }
 
-        const int maxSize = 1024 * 1024 * 50; // 50 MB Max file size
+        //const int maxSize = 1024 * 1024 * 50; // 50 MB Max file size
+        static readonly long[] maxSizes = new long[] { 1024 * 1024, 1024 * 1024 * 50, 1024 * 1024 * 1024, long.MaxValue };
 
         public static ClipData FileDropsToBuffer (StringCollection paths)
         {
             try
             {
-                if (paths.Count == 1)
+                var maxSize = maxSizes[Main.limit];
                 {
-                    if (!File.Exists(paths[0]))
-                        return null;
-                    var file = new FileInfo(paths[0]);
-                    if (file.Length > maxSize)
-                    {
-                        Console.Write("File not copied because it's larger than 50 MB");
-                        return null;
-                    }
-                    else
-                        return new ClipData(DataType.File, new FileBuffer(file));
-                } else
-                {
-                    var files = new FileBuffer[paths.Count];
+                    var files = new FileBuffer();
                     var len = 0L;
                     for (int i = 0; i < paths.Count; i++)
                     {
                         if (File.Exists(paths[i]))
                         {
                             var file = new FileInfo(paths[i]);
-                            len += file.Length;
-                            if (len > maxSize)
-                                break;
-                            files[i] = new FileBuffer(file);
+                            if ((len += file.Length) > maxSize)
+                            {
+                                Main.current.Log(NotificationType.BufferDiscarded, GetBytesReadable(len));
+                                return null;
+                            }
+                            files.Add(file);
                         }
                     }
                     return new ClipData(DataType.Files, files);
@@ -95,23 +87,22 @@ namespace SocketClipboard
             
         }
 
-        public static string SendToTemporary (FileBuffer buffer)
+        public static string SendToTemporary (string name, byte[] content, DateTime modified)
         {
             var temp = Path.GetTempPath();
-            temp += "\\" + buffer.name;
-            File.WriteAllBytes(temp, buffer.content);
-            File.SetLastWriteTime(temp, buffer.modified);
+            temp += "\\" + name;
+            File.WriteAllBytes(temp, content);
+            File.SetLastWriteTime(temp, modified);
 
             return temp;
         }
 
-        public static StringCollection SendToTemporary(FileBuffer[] buffer)
+        public static StringCollection SendToTemporary(FileBuffer buffer)
         {
             var s = new StringCollection();
-            for (int i = 0; i < buffer.Length; i++)
+            for (int i = 0; i < buffer.name.Count; i++)
             {
-                if (buffer[i] != null)
-                    s.Add(SendToTemporary(buffer[i]));
+               s.Add(SendToTemporary(buffer.name[i], buffer.content[i], buffer.modified[i]));
             }
             return s;
         }
@@ -173,9 +164,9 @@ namespace SocketClipboard
                 return i.ToString("0 B"); // Byte
             }
             // Divide by 1024 to get fractional value
-            readable = (readable / 1024);
+            readable = (readable / 1024.0);
             // Return formatted number with suffix
-            return readable.ToString("0.## ") + suffix;
+            return readable.ToString("0.00 ") + suffix;
         }
     }
 
