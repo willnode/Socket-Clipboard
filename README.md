@@ -19,7 +19,7 @@ For security reason in first run you need to list the clients manually in each c
 
 As soon as you hit Ctrl+C the clipboard packet is sent to clients you listed. Then each client will receive the packet then update its clipboard buffer. This way all computer will have the same clipboard data.
 
-Supported packets are: Text, RTF, HTML, CSV, Image, File(s). Multiple files are accepted as long as the file size sum is not more than 50 MB or only partially will be sent. Single file also OK with size limit of 50 MB. Directories are always discarded.
+Supported packets are: Text, RTF, HTML, CSV, Image, File(s). Multiple files with directories are accepted and instantly sent to all clients. File size limit can be applied individually via options in tray icon.
 
 All computer clients must be in the same port number. You can use different port number for different clipboard packet layer. Port number can be changed by clicking the port number in status bar.
 

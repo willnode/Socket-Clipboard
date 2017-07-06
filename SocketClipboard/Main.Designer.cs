@@ -59,6 +59,7 @@
             this.@__quit = new System.Windows.Forms.ToolStripMenuItem();
             this._split = new System.Windows.Forms.SplitContainer();
             this._log = new System.Windows.Forms.ListBox();
+            this.treatFileCutToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.tableLayoutPanel1.SuspendLayout();
             this.statusStrip1.SuspendLayout();
             this._notify_strip.SuspendLayout();
@@ -177,6 +178,7 @@
             this.@__active,
             this.@__startup,
             this.toolStripSeparator1,
+            this.treatFileCutToolStripMenuItem,
             this.fileTransferLimitToolStripMenuItem,
             this.notificationToolStripMenuItem,
             this.toolStripSeparator2,
@@ -184,7 +186,7 @@
             this.@__restart,
             this.@__quit});
             this._notify_strip.Name = "_notify_strip";
-            this._notify_strip.Size = new System.Drawing.Size(168, 170);
+            this._notify_strip.Size = new System.Drawing.Size(168, 214);
             // 
             // __active
             // 
@@ -193,6 +195,7 @@
             this.@__active.Name = "__active";
             this.@__active.Size = new System.Drawing.Size(167, 22);
             this.@__active.Text = "Active";
+            this.@__active.Click += new System.EventHandler(this.@__active_Click);
             // 
             // __startup
             // 
@@ -262,7 +265,7 @@
             // __notify0
             // 
             this.@__notify0.Name = "__notify0";
-            this.@__notify0.Size = new System.Drawing.Size(115, 22);
+            this.@__notify0.Size = new System.Drawing.Size(152, 22);
             this.@__notify0.Tag = 0;
             this.@__notify0.Text = "Off";
             this.@__notify0.Click += new System.EventHandler(this.@__notify0_Click);
@@ -270,7 +273,7 @@
             // __notify1
             // 
             this.@__notify1.Name = "__notify1";
-            this.@__notify1.Size = new System.Drawing.Size(115, 22);
+            this.@__notify1.Size = new System.Drawing.Size(152, 22);
             this.@__notify1.Tag = 1;
             this.@__notify1.Text = "Basic";
             this.@__notify1.Click += new System.EventHandler(this.@__notify0_Click);
@@ -278,7 +281,7 @@
             // __notify2
             // 
             this.@__notify2.Name = "__notify2";
-            this.@__notify2.Size = new System.Drawing.Size(115, 22);
+            this.@__notify2.Size = new System.Drawing.Size(152, 22);
             this.@__notify2.Tag = 2;
             this.@__notify2.Text = "Verbose";
             this.@__notify2.Click += new System.EventHandler(this.@__notify0_Click);
@@ -342,6 +345,12 @@
             this._log.Size = new System.Drawing.Size(96, 100);
             this._log.TabIndex = 0;
             // 
+            // treatFileCutToolStripMenuItem
+            // 
+            this.treatFileCutToolStripMenuItem.Name = "treatFileCutToolStripMenuItem";
+            this.treatFileCutToolStripMenuItem.Size = new System.Drawing.Size(167, 22);
+            this.treatFileCutToolStripMenuItem.Text = "Treat File Cut";
+            // 
             // Main
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -398,6 +407,7 @@
         private System.Windows.Forms.ToolStripMenuItem __restart;
         private System.Windows.Forms.SplitContainer _split;
         private System.Windows.Forms.ListBox _log;
+        private System.Windows.Forms.ToolStripMenuItem treatFileCutToolStripMenuItem;
     }
 }
 

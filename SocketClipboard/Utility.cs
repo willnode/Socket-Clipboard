@@ -6,6 +6,7 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Drawing;
+using System.Collections.Generic;
 
 namespace SocketClipboard
 {
@@ -75,6 +76,23 @@ namespace SocketClipboard
                                 return null;
                             }
                             files.Add(file);
+                        } 
+                    }
+                    for (int i = 0; i < paths.Count; i++)
+                    {
+                        if (Directory.Exists(paths[i]))
+                        {
+                            var iter = Directory.EnumerateFiles(paths[i], "*", SearchOption.AllDirectories);
+                            foreach (var filePath in iter)
+                            {
+                                var file = new FileInfo(filePath);
+                                if ((len += file.Length) > maxSize)
+                                {
+                                    Main.current.Log(NotificationType.BufferDiscarded, GetBytesReadable(len));
+                                    return null;
+                                }
+                                files.Add(file, Path.GetDirectoryName(paths[i]));
+                            }
                         }
                     }
                     return new ClipData(DataType.Files, files);
@@ -90,21 +108,39 @@ namespace SocketClipboard
         public static string SendToTemporary (string name, byte[] content, DateTime modified)
         {
             var temp = Path.GetTempPath();
-            temp += "\\" + name;
-            File.WriteAllBytes(temp, content);
-            File.SetLastWriteTime(temp, modified);
+            var dest = temp + "\\" + name;
+            if (name.Contains('\\'))
+            {
+                var dir = Path.GetDirectoryName(dest);
+                temp += "\\" + name.Substring(0, name.IndexOf('\\')); // Only copy it's root dir
+
+                if (File.Exists(dir))
+                    File.Delete(dir);
+                if (!Directory.Exists(dir))
+                    Directory.CreateDirectory(dir);
+            }
+            else
+            {
+                temp = dest;
+            }
+
+            File.WriteAllBytes(dest, content);
+            File.SetLastWriteTime(dest, modified);
 
             return temp;
         }
 
         public static StringCollection SendToTemporary(FileBuffer buffer)
         {
-            var s = new StringCollection();
+            var s = new List<string>();
             for (int i = 0; i < buffer.name.Count; i++)
             {
                s.Add(SendToTemporary(buffer.name[i], buffer.content[i], buffer.modified[i]));
             }
-            return s;
+
+            var c = new StringCollection();
+            c.AddRange(s.Distinct().ToArray());
+            return c;
         }
 
         public static IPAddress GetLocalIPAddress()
@@ -178,6 +214,22 @@ namespace SocketClipboard
         {
             Name = name;
             
+        }
+    }
+
+    public class NetListener : TcpListener
+    {
+
+        public NetListener (IPEndPoint local) : base(local) { }
+
+        public NetListener (IPAddress ip, int port) : base(ip, port) { }
+
+        public new bool Active
+        {
+            get
+            {
+                return base.Active;
+            }
         }
     }
 }

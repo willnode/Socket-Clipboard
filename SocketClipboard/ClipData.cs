@@ -85,6 +85,14 @@ namespace SocketClipboard
             totalSize += file.Length;
         }
 
+        public void Add (FileInfo file, string root)
+        {       
+            content.Add(File.ReadAllBytes(file.FullName));
+            name.Add(file.FullName.Replace(root, "").Substring(1));
+            modified.Add(file.LastWriteTime);
+            totalSize += file.Length;
+        }
+
         public override string ToString()
         {
             return name.Count >= 1 ? name.Count.ToString() + " files" : "a file";
@@ -98,13 +106,13 @@ namespace SocketClipboard
         static string[] dataTypes = new string[]
         {
             "HTML Format", "Rich Text Format", "Csv", "UnicodeText", "Text",
-            "DeviceIndepentBitmap", "Bitmap", "TaggedImageFileFormat", "EnhancedMetafile", "MetaFilePict"
+            "DeviceIndepentBitmap", "Bitmap"//, "TaggedImageFileFormat", "EnhancedMetafile", "MetaFilePict"
         };
 
         static string[] readableTypes = new string[]
         {
             "HTML", "RTF", "CSV", "Text", "ASCII",
-            "DIB", "Bitmap", "TIFF", "Metafile", "Metafile",
+            "DIB", "Bitmap"//, "TIFF", "Metafile", "Metafile",
         };
 
         public List<string> type = new List<string>();
@@ -125,8 +133,9 @@ namespace SocketClipboard
             var r = new DirectBuffer();
             foreach (var type in dataTypes)
             {
-                if (data.GetDataPresent(type, false))
-                    r.Add(type, data.GetData(type, true));
+              
+                         r.Add(type, data.GetData(type, false));
+
             }
             return r.data.Count == 0 ? null : r;
         }

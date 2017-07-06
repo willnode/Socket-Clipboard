@@ -2,6 +2,7 @@
 using System;
 using System.Windows.Forms;
 using System.Net.NetworkInformation;
+using System.Reflection;
 
 namespace SocketClipboard
 {
@@ -201,7 +202,8 @@ namespace SocketClipboard
 
         private void __about_Click(object sender, EventArgs e)
         {
-            if (MessageBox.Show("Socket-Clipboard is made with <3 by Wellosoft.\nThis is an open source project. Visit reposity?", "About SocketClipboard", MessageBoxButtons.YesNo) == DialogResult.Yes)
+            if (MessageBox.Show("Socket-Clipboard is made with <3 by Wellosoft.\nThis is an open source project. Visit reposity?", "SocketClipboard " + 
+                AssemblyName.GetAssemblyName(Assembly.GetExecutingAssembly().Location).Version.ToSt‌​ring(), MessageBoxButtons.OKCancel) == DialogResult.OK)
                 System.Diagnostics.Process.Start("https://github.com/willnode/Socket-Clipboard/");
         }
 
@@ -231,6 +233,11 @@ namespace SocketClipboard
         private void Main_FormClosing(object sender, FormClosingEventArgs e)
         {
             Application.Exit();
+        }
+
+        private void __active_Click(object sender, EventArgs e)
+        {
+            SetThreader(__active.Checked = !__active.Checked);
         }
     }
 }

@@ -10,19 +10,21 @@ namespace SocketClipboard
     public partial class Main : Form
     {
 
-        private TcpListener server;
+        private NetListener server;
         private List<NetClient> clients = new List<NetClient>();
         private Dictionary<string, string> logs = new Dictionary<string, string>();
 
         private Thread thread_emitter;
+        private ManualResetEvent manual_emitter;
         private Thread thread_listener;
+        private ManualResetEvent manual_listener;
 
 
         void ThreadListener()
         {
             while (true)
             {
-                if (server.Pending())
+                if (server.Active && server.Pending())
                 {
                     Log(NotificationType.Receiving);
 
@@ -58,6 +60,7 @@ namespace SocketClipboard
                 }
 
                 Thread.Sleep(50);
+                manual_listener.WaitOne();
                 clip_freeze = false;
             }
         }
@@ -66,7 +69,9 @@ namespace SocketClipboard
         {
             while (true)
             {
+
                 Thread.Sleep(50);
+                manual_emitter.WaitOne();
 
                 if (!clip_dirty)
                     continue;
@@ -107,6 +112,10 @@ namespace SocketClipboard
 
         void StartThreader()
         {
+            manual_emitter = new ManualResetEvent(true);
+            manual_listener = new ManualResetEvent(true);
+
+
             thread_emitter = new Thread(ThreadEmitter);
             thread_emitter.IsBackground = true;
             thread_emitter.Start();
@@ -116,12 +125,26 @@ namespace SocketClipboard
             thread_listener.Start();
         }
 
+        void SetThreader(bool active)
+        {
+            if (active)
+            {
+                manual_listener.Set();
+                manual_emitter.Set();
+            }
+            else
+            {
+                manual_listener.Reset();
+                manual_emitter.Reset();
+            }
+        }
+
         void StartServer()
         {
             if (server != null)
                 server.Stop();
 
-            server = new TcpListener(Utility.GetLocalIPAddress(), port);
+            server = new NetListener(Utility.GetLocalIPAddress(), port);
             server.Start();
         }
 
