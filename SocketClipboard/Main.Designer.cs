@@ -59,7 +59,7 @@
             this.@__quit = new System.Windows.Forms.ToolStripMenuItem();
             this._split = new System.Windows.Forms.SplitContainer();
             this._log = new System.Windows.Forms.ListBox();
-            this.treatFileCutToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.@__invite = new System.Windows.Forms.ToolStripMenuItem();
             this.tableLayoutPanel1.SuspendLayout();
             this.statusStrip1.SuspendLayout();
             this._notify_strip.SuspendLayout();
@@ -178,7 +178,7 @@
             this.@__active,
             this.@__startup,
             this.toolStripSeparator1,
-            this.treatFileCutToolStripMenuItem,
+            this.@__invite,
             this.fileTransferLimitToolStripMenuItem,
             this.notificationToolStripMenuItem,
             this.toolStripSeparator2,
@@ -265,7 +265,7 @@
             // __notify0
             // 
             this.@__notify0.Name = "__notify0";
-            this.@__notify0.Size = new System.Drawing.Size(152, 22);
+            this.@__notify0.Size = new System.Drawing.Size(115, 22);
             this.@__notify0.Tag = 0;
             this.@__notify0.Text = "Off";
             this.@__notify0.Click += new System.EventHandler(this.@__notify0_Click);
@@ -273,7 +273,7 @@
             // __notify1
             // 
             this.@__notify1.Name = "__notify1";
-            this.@__notify1.Size = new System.Drawing.Size(152, 22);
+            this.@__notify1.Size = new System.Drawing.Size(115, 22);
             this.@__notify1.Tag = 1;
             this.@__notify1.Text = "Basic";
             this.@__notify1.Click += new System.EventHandler(this.@__notify0_Click);
@@ -281,7 +281,7 @@
             // __notify2
             // 
             this.@__notify2.Name = "__notify2";
-            this.@__notify2.Size = new System.Drawing.Size(152, 22);
+            this.@__notify2.Size = new System.Drawing.Size(115, 22);
             this.@__notify2.Tag = 2;
             this.@__notify2.Text = "Verbose";
             this.@__notify2.Click += new System.EventHandler(this.@__notify0_Click);
@@ -345,11 +345,12 @@
             this._log.Size = new System.Drawing.Size(96, 100);
             this._log.TabIndex = 0;
             // 
-            // treatFileCutToolStripMenuItem
+            // __invite
             // 
-            this.treatFileCutToolStripMenuItem.Name = "treatFileCutToolStripMenuItem";
-            this.treatFileCutToolStripMenuItem.Size = new System.Drawing.Size(167, 22);
-            this.treatFileCutToolStripMenuItem.Text = "Treat File Cut";
+            this.@__invite.Name = "__invite";
+            this.@__invite.Size = new System.Drawing.Size(167, 22);
+            this.@__invite.Text = "Send Invitations...";
+            this.@__invite.Click += new System.EventHandler(this.@__invite_Click);
             // 
             // Main
             // 
@@ -407,7 +408,7 @@
         private System.Windows.Forms.ToolStripMenuItem __restart;
         private System.Windows.Forms.SplitContainer _split;
         private System.Windows.Forms.ListBox _log;
-        private System.Windows.Forms.ToolStripMenuItem treatFileCutToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem __invite;
     }
 }
 

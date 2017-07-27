@@ -55,6 +55,12 @@
   <ItemGroup>
     <Compile Include="ClipData.cs" />
     <Compile Include="ClipEvent.cs" />
+    <Compile Include="Inviter.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Inviter.Designer.cs">
+      <DependentUpon>Inviter.cs</DependentUpon>
+    </Compile>
     <Compile Include="Main.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -70,6 +76,9 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Utility.cs" />
+    <EmbeddedResource Include="Inviter.resx">
+      <DependentUpon>Inviter.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Main.resx">
       <DependentUpon>Main.cs</DependentUpon>
     </EmbeddedResource>

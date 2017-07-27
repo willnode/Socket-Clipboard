@@ -55,8 +55,13 @@ namespace SocketClipboard
                     Notify(verbose >= 1, "Socket-Clipboard", "File(s) discarded because its total size (" + data.ToString() + "+) are excessing data limit. Please uplift the limit first.", StateLog.Normal, ToolTipIcon.Warning);
                     break;
                 case NotificationType.Sending:
-                    Log("Sending...");
-                    Notify(false, null, null, StateLog.Busy);
+                    if (data == null)
+                    {
+                        Log("Emitting...");
+                        Notify(false, null, null, StateLog.Busy);
+                    }
+                    else
+                        Log(string.Format("Emitting ({0:P})", (float)data), true, true);
                     break;
                 case NotificationType.Sent:
                     var reach = logs.Values.Count(x => "Sent" == x);
@@ -72,8 +77,12 @@ namespace SocketClipboard
                     // ?
                     break;
                 case NotificationType.Receiving:
-                    Log("Receiving...");
-                    Notify(false, null, null, StateLog.Listen);
+                    if (data == null)
+                    {
+                        Log("Receiving...");
+                        Notify(false, null, null, StateLog.Listen);
+                    } else
+                        Log(string.Format("Receiving ({0:P})", (float)data), true, true);
                     break;
                 case NotificationType.Received:
                     str = string.Format("Received {0} ({1})", file.Data.ToString(), file.GetSizeReadable());
@@ -92,7 +101,7 @@ namespace SocketClipboard
         }
 
 
-        private void Log(string text, bool timestamp = true)
+        private void Log(string text, bool timestamp = true, bool append = false)
         {
 
             if (timestamp)
@@ -102,11 +111,24 @@ namespace SocketClipboard
 
             Console.WriteLine(text);
             if(IsHandleCreated)
-                Invoke(new Action(() => { _status.Text = text; _log.SelectedIndex = _log.Items.Add(text); UpdateLabels(); }));
+                Invoke(new Action(() => {
+                    LogInner(text, append);
+                }));
             else
             {
-                _status.Text = text; _log.SelectedIndex = _log.Items.Add(text); UpdateLabels();
+                LogInner(text, append);
             }
+        }
+
+        void LogInner (string text, bool append)
+        {
+            _status.Text = text;
+            if (append && _log.Items.Count > 0)
+                _log.Items[_log.Items.Count - 1] = (text);
+            else
+                _log.SelectedIndex = _log.Items.Add(text);
+
+            UpdateLabels();
         }
 
   

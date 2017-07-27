@@ -15,11 +15,11 @@ namespace SocketClipboard
         private Dictionary<string, string> logs = new Dictionary<string, string>();
 
         private Thread thread_emitter;
-        private ManualResetEvent manual_emitter;
         private Thread thread_listener;
+        
+        private ManualResetEvent manual_emitter;
         private ManualResetEvent manual_listener;
-
-
+        
         void ThreadListener()
         {
             while (true)
@@ -48,9 +48,41 @@ namespace SocketClipboard
                             // Clip Freeze prevents the next copy buffer event makes problem.
                             clip_freeze = true;
 
-                            Invoke(new Action(() => {
-                                f.SendToClipboard();
+                            Invoke(new Action(() =>
+                            {
+
+                                if (f.Type != DataType.MetaInvitation)
+                                {
+                                    f.SendToClipboard();
+                                }
+                                else
+                                {
+                                    var v = f.Data as InvitationBuffer;
+                                    if (Inviter.current == null)
+                                    {
+                                        if (clients.FindIndex(x => x.Name == v.host) < 0)
+                                        {
+                                            if (MessageBox.Show("Do you trust " + v.host + " so we can add them our list?", "SocketClipboard invitation", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                                            {
+                                                AddHost(v.host);
+                                                SaveConfig();
+                                            }
+                                        }
+                                        Inviter.RespondTo(v, port);
+                                    }
+                                    else
+                                    {
+                                        if (clients.FindIndex(x => x.Name == v.host) < 0)
+                                        {
+                                            AddHost(v.host);
+                                            SaveConfig();
+                                        }
+                                        Inviter.current.IncrementConfirmation();
+                                    }
+                                }
+
                             }));
+
 
                         }
 
@@ -110,19 +142,14 @@ namespace SocketClipboard
             }
         }
 
+       
         void StartThreader()
         {
             manual_emitter = new ManualResetEvent(true);
             manual_listener = new ManualResetEvent(true);
-
-
-            thread_emitter = new Thread(ThreadEmitter);
-            thread_emitter.IsBackground = true;
-            thread_emitter.Start();
-
-            thread_listener = new Thread(ThreadListener);
-            thread_listener.IsBackground = true;
-            thread_listener.Start();
+         
+            (thread_emitter = new Thread(ThreadEmitter) { IsBackground = true, Priority = ThreadPriority.Lowest }).Start();
+            (thread_listener = new Thread(ThreadListener) { IsBackground = true, Priority = ThreadPriority.Lowest }).Start();
         }
 
         void SetThreader(bool active)
