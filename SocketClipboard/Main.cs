@@ -197,7 +197,6 @@ namespace SocketClipboard
                 else
                     rk.DeleteValue("Socket-Clipboard", false);
             }
-
         }
 
         private void __about_Click(object sender, EventArgs e)
@@ -238,6 +237,11 @@ namespace SocketClipboard
         private void __active_Click(object sender, EventArgs e)
         {
             SetThreader(__active.Checked = !__active.Checked);
+        }
+
+        private void __invite_Click(object sender, EventArgs e)
+        {
+            new Inviter(port).ShowDialog(this);
         }
     }
 }

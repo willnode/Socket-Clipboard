@@ -210,10 +210,9 @@ namespace SocketClipboard
     {
         public string Name;
 
-        public NetClient (string name)
+        public NetClient (string name) : base()
         {
             Name = name;
-            
         }
     }
 

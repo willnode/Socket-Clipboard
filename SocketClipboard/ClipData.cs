@@ -43,11 +43,17 @@ namespace SocketClipboard
 
         public static ClipData FromClipboard ()
         {
-            if (Clipboard.ContainsFileDropList())
-                return Utility.FileDropsToBuffer(Clipboard.GetFileDropList());
-            else
-                return new ClipData(DataType.Direct, DirectBuffer.FromClipboard(Clipboard.GetDataObject()));
-                //return null;
+            try
+            {
+                if (Clipboard.ContainsFileDropList())
+                    return Utility.FileDropsToBuffer(Clipboard.GetFileDropList());
+                else
+                    return new ClipData(DataType.Direct, DirectBuffer.FromClipboard(Clipboard.GetDataObject()));
+            }
+            catch (Exception)
+            {
+                return null;
+            }
         }
 
         public string GetSizeReadable ()
@@ -105,14 +111,14 @@ namespace SocketClipboard
         // Only serializable formats can get in
         static string[] dataTypes = new string[]
         {
-            "HTML Format", "Rich Text Format", "Csv", "UnicodeText", "Text",
-            "DeviceIndepentBitmap", "Bitmap"//, "TaggedImageFileFormat", "EnhancedMetafile", "MetaFilePict"
+            "Bitmap", "HTML Format", "Rich Text Format", "Csv", "UnicodeText", "Text",
+            "DeviceIndepentBitmap"//, "TaggedImageFileFormat", "EnhancedMetafile", "MetaFilePict"
         };
 
         static string[] readableTypes = new string[]
         {
-            "HTML", "RTF", "CSV", "Text", "ASCII",
-            "DIB", "Bitmap"//, "TIFF", "Metafile", "Metafile",
+            "Bitmap", "HTML", "RTF", "CSV", "Text", "ASCII",
+            "DIB"//, "TIFF", "Metafile", "Metafile",
         };
 
         public List<string> type = new List<string>();
@@ -172,9 +178,16 @@ namespace SocketClipboard
         }
     }
 
+    [Serializable]
+    public class InvitationBuffer
+    {
+        public string host;
+        public string ip;
+    }
     public enum DataType
     {
         Direct = 0,
         Files = 1,
+        MetaInvitation = 2,
     }
 }
