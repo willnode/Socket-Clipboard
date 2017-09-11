@@ -29,23 +29,12 @@ namespace SocketClipboard
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             AppDomain.CurrentDomain.UnhandledException += HandleException;
-            CheckLog();
 
             var args = Environment.GetCommandLineArgs();
             var m = new Main();
             if (!args.Contains("--background"))
                 m.Show();
             Application.Run();
-        }
-
-        static void CheckLog ()
-        {
-            // TODO: Not working yet.
-            var file = new FileInfo("Log.txt");
-            if (file.Exists)
-            {
-                Console.SetOut(file.CreateText());
-            }
         }
 
         static void HandleException(object sender, UnhandledExceptionEventArgs args)
