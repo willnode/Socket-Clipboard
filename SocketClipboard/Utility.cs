@@ -7,6 +7,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Drawing;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 namespace SocketClipboard
 {
@@ -54,10 +55,9 @@ namespace SocketClipboard
             return result;
         }
 
-        //const int maxSize = 1024 * 1024 * 50; // 50 MB Max file size
         static readonly long[] maxSizes = new long[] { 1024 * 1024, 1024 * 1024 * 50, 1024 * 1024 * 1024, long.MaxValue };
 
-        public static ClipData FileDropsToBuffer (StringCollection paths)
+        public static FileBuffer FileDropsToBuffer(string[] paths)
         {
             try
             {
@@ -65,7 +65,7 @@ namespace SocketClipboard
                 {
                     var files = new FileBuffer();
                     var len = 0L;
-                    for (int i = 0; i < paths.Count; i++)
+                    for (int i = 0; i < paths.Length; i++)
                     {
                         if (File.Exists(paths[i]))
                         {
@@ -76,9 +76,9 @@ namespace SocketClipboard
                                 return null;
                             }
                             files.Add(file);
-                        } 
+                        }
                     }
-                    for (int i = 0; i < paths.Count; i++)
+                    for (int i = 0; i < paths.Length; i++)
                     {
                         if (Directory.Exists(paths[i]))
                         {
@@ -95,53 +95,37 @@ namespace SocketClipboard
                             }
                         }
                     }
-                    return new ClipData(DataType.Files, files);
+                    return files;
                 }
             }
             catch (Exception)
             {
                 return null;
             }
-            
+
         }
 
-        public static string SendToTemporary (string name, byte[] content, DateTime modified)
+        public static readonly string DumpDestination = Path.GetTempPath() + "\\SocketDumps\\";
+
+        public const long SinglePacketCap = 1024 * 1024 * 16; // 16 MB is max file size for single-time transmit
+
+        public const long MultiPacketCap = 1024 * 1024 * 1; // Large files only
+
+        public static void SetupTemporaryFiles(FileBuffer buffer)
         {
-            var temp = Path.GetTempPath();
-            var dest = temp + "\\" + name;
-            if (name.Contains('\\'))
+            // Cleanup dirs
+            Directory.CreateDirectory(DumpDestination);
+            var dir = new DirectoryInfo(DumpDestination);
+            foreach (var file in dir.EnumerateFiles()) file.Delete();
+            foreach (var fold in dir.EnumerateDirectories()) fold.Delete(true);
+
+            foreach (var file in buffer.files)
             {
-                var dir = Path.GetDirectoryName(dest);
-                temp += "\\" + name.Substring(0, name.IndexOf('\\')); // Only copy it's root dir
-
-                if (File.Exists(dir))
-                    File.Delete(dir);
-                if (!Directory.Exists(dir))
-                    Directory.CreateDirectory(dir);
+                Directory.CreateDirectory(Path.GetDirectoryName(file.destination));
             }
-            else
-            {
-                temp = dest;
-            }
-
-            File.WriteAllBytes(dest, content);
-            File.SetLastWriteTime(dest, modified);
-
-            return temp;
         }
 
-        public static StringCollection SendToTemporary(FileBuffer buffer)
-        {
-            var s = new List<string>();
-            for (int i = 0; i < buffer.name.Count; i++)
-            {
-               s.Add(SendToTemporary(buffer.name[i], buffer.content[i], buffer.modified[i]));
-            }
-
-            var c = new StringCollection();
-            c.AddRange(s.Distinct().ToArray());
-            return c;
-        }
+    
 
         public static IPAddress GetLocalIPAddress()
         {
@@ -204,13 +188,64 @@ namespace SocketClipboard
             // Return formatted number with suffix
             return readable.ToString("0.00 ") + suffix;
         }
+
+        public static string Truncate(this string s, int length)
+        {
+            if (s.Length <= length) return s;
+            else return s.Substring(0, length);
+        }
+
+
+        // To support flashing.
+        [DllImport("user32.dll", CallingConvention = CallingConvention.Cdecl)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool FlashWindowEx(ref FLASHWINFO pwfi);
+
+        //Flash both the window caption and taskbar button.
+        //This is equivalent to setting the FLASHW_CAPTION | FLASHW_TRAY flags. 
+        private const uint FLASHW_ALL = 3;
+
+        // Flash continuously until the window comes to the foreground. 
+        private const uint FLASHW_TIMERNOFG = 12;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct FLASHWINFO
+        {
+            public uint cbSize;
+            public IntPtr hwnd;
+            public uint dwFlags;
+            public uint uCount;
+            public uint dwTimeout;
+        }
+
+        /// <summary>
+        /// Send form taskbar notification, the Window will flash until get's focus
+        /// <remarks>
+        /// This method allows to Flash a Window, signifying to the user that some major event occurred within the application that requires their attention. 
+        /// </remarks>
+        /// </summary>
+        /// <param name="form"></param>
+        /// <returns></returns>
+        public static bool Flash(this Form form)
+        {
+            IntPtr hWnd = form.Handle;
+            FLASHWINFO fInfo = new FLASHWINFO();
+
+            fInfo.cbSize = Convert.ToUInt32(Marshal.SizeOf(fInfo));
+            fInfo.hwnd = hWnd;
+            fInfo.dwFlags = FLASHW_ALL | FLASHW_TIMERNOFG;
+            fInfo.uCount = 2;
+            fInfo.dwTimeout = 500;
+
+            return FlashWindowEx(ref fInfo);
+        }
     }
 
     public class NetClient : TcpClient
     {
         public string Name;
 
-        public NetClient (string name) : base()
+        public NetClient(string name) : base()
         {
             Name = name;
         }
@@ -219,9 +254,9 @@ namespace SocketClipboard
     public class NetListener : TcpListener
     {
 
-        public NetListener (IPEndPoint local) : base(local) { }
+        public NetListener(IPEndPoint local) : base(local) { }
 
-        public NetListener (IPAddress ip, int port) : base(ip, port) { }
+        public NetListener(IPAddress ip, int port) : base(ip, port) { }
 
         public new bool Active
         {

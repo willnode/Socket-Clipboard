@@ -59,7 +59,6 @@
             this.@__quit = new System.Windows.Forms.ToolStripMenuItem();
             this._split = new System.Windows.Forms.SplitContainer();
             this._log = new System.Windows.Forms.ListBox();
-            this.@__invite = new System.Windows.Forms.ToolStripMenuItem();
             this.tableLayoutPanel1.SuspendLayout();
             this.statusStrip1.SuspendLayout();
             this._notify_strip.SuspendLayout();
@@ -178,7 +177,6 @@
             this.@__active,
             this.@__startup,
             this.toolStripSeparator1,
-            this.@__invite,
             this.fileTransferLimitToolStripMenuItem,
             this.notificationToolStripMenuItem,
             this.toolStripSeparator2,
@@ -344,14 +342,7 @@
             this._log.ScrollAlwaysVisible = true;
             this._log.Size = new System.Drawing.Size(96, 100);
             this._log.TabIndex = 0;
-            // 
-            // __invite
-            // 
-            this.@__invite.Name = "__invite";
-            this.@__invite.Size = new System.Drawing.Size(167, 22);
-            this.@__invite.Text = "Send Invitations...";
-            this.@__invite.Click += new System.EventHandler(this.@__invite_Click);
-            // 
+          // 
             // Main
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -408,7 +399,6 @@
         private System.Windows.Forms.ToolStripMenuItem __restart;
         private System.Windows.Forms.SplitContainer _split;
         private System.Windows.Forms.ListBox _log;
-        private System.Windows.Forms.ToolStripMenuItem __invite;
     }
 }
 

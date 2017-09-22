@@ -21,7 +21,6 @@ namespace SocketClipboard
             if (!mutex.WaitOne(TimeSpan.FromSeconds(3), false))
             {
                 MessageBox.Show("Another instance of SocketCopy is already running. Bye!", "Sorry for this", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
-                mutex.ReleaseMutex();
                 Environment.Exit(0);
                 return;
             }
@@ -45,8 +44,13 @@ namespace SocketClipboard
             if (!args.IsTerminating)
                 return;
             if (MessageBox.Show("This software runs to a trouble and need to quit. Restart the software?", "Sorry for this", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
-            {
+            {                
                 Application.Restart();
+                Environment.Exit(0);
+            }
+            else
+            {
+                MessageBox.Show(ex.ToString(), "Useful information to the dev (please screenshot)");
                 Environment.Exit(0);
             }
         }

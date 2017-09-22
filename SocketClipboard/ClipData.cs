@@ -7,187 +7,247 @@ using System.Windows.Forms;
 
 namespace SocketClipboard
 {
+
     [Serializable]
-    public class ClipData
+    public abstract class ClipBuffer
     {
-        public object Data;
-        public DataType Type;
+        public abstract DataType Type { get; }
 
-        public ClipData () { }
+        public abstract void ToClipboard();
 
-        public ClipData (DataType type, object data)
+        public abstract long GetSize();
+
+        public virtual string GetSizeReadable() { return Utility.GetBytesReadable(GetSize()); }
+
+        public static ClipBuffer FromClipboard()
         {
-            Data = data;
-            Type = type;
-        }
-
-        public void SendToClipboard ()
-        {
-            switch (Type)
-            {
-                case DataType.Direct:
-                    Clipboard.SetDataObject((Data as DirectBuffer).Apply());
-                    break;
-                case DataType.Files:
-                    var buffers = Data as FileBuffer;
-                    var lists = Utility.SendToTemporary(buffers);
-                    var data = new DataObject();
-                    data.SetFileDropList(lists);
-                    data.SetData("Preferred DropEffect", DragDropEffects.Move); // Cut
-                    Clipboard.SetDataObject(data);
-                    break;
-                default:
-                    break;
-            }
-        }
-
-        public static ClipData FromClipboard ()
-        {
-            try
-            {
-                if (Clipboard.ContainsFileDropList())
-                    return Utility.FileDropsToBuffer(Clipboard.GetFileDropList());
-                else
-                    return new ClipData(DataType.Direct, DirectBuffer.FromClipboard(Clipboard.GetDataObject()));
-            }
-            catch (Exception)
-            {
+            var obj = Clipboard.GetDataObject();
+            if (obj == null)
                 return null;
-            }
+            else if (obj.GetDataPresent(DataFormats.FileDrop))
+                return Utility.FileDropsToBuffer((string[])obj.GetData(DataFormats.FileDrop, true));
+            else if (obj.GetDataPresent(typeof(string)))
+                return TextBuffer.FromClipboard(obj);
+            else if (obj.GetDataPresent(typeof(Bitmap)))
+                return BitmapBuffer.FromClipboard(obj);
+            else
+                return null;
         }
-
-        public string GetSizeReadable ()
-        {
-            switch (Type)
-            {
-                case DataType.Direct:
-                    return Utility.GetBytesReadable((Data as DirectBuffer).GetSize());          
-                case DataType.Files:
-                    return Utility.GetBytesReadable((Data as FileBuffer).totalSize);
-                default:
-                    return "";
-            }
-        }
-
     }
 
     [Serializable]
-    public class FileBuffer
+    public struct FileBufferUnit
     {
-        public List<byte[]> content = new List<byte[]>();
-        public List<string> name = new List<string>();
-        public List<DateTime> modified = new List<DateTime>();
-        public long totalSize;
-        
-        public FileBuffer ()
-        {
-        }
+        /// Size of the file
+        public long size;
+        /// Relative name + directory path
+        public string name;
+        /// True if this file will transmitted broadcastly
+        public bool multiStaged;
+        /// File datestamp
+        public DateTime modified;
+        /// Source path (useful only for sender)
+        [NonSerialized]
+        public string source;
 
-        public void Add (FileInfo file)
+        public string destination { get { return Utility.DumpDestination + name; } }
+    }
+
+    [Serializable]
+    public class FileBuffer : ClipBuffer
+    {
+
+        public List<FileBufferUnit> files = new List<FileBufferUnit>();
+
+        public long totalSize;
+
+        public override DataType Type { get { return DataType.Files; } }
+
+        public FileBuffer() { }
+
+        public void Add(FileInfo file)
         {
-            content.Add(File.ReadAllBytes(file.FullName));
-            name.Add(file.Name);
-            modified.Add(file.LastWriteTime);
+            files.Add(new FileBufferUnit()
+            {
+                name = file.Name,
+                size = file.Length,
+                source = file.FullName,
+                modified = file.LastWriteTime,
+                multiStaged = file.Length > Utility.SinglePacketCap,
+            });
+
             totalSize += file.Length;
         }
 
-        public void Add (FileInfo file, string root)
-        {       
-            content.Add(File.ReadAllBytes(file.FullName));
-            name.Add(file.FullName.Replace(root, "").Substring(1));
-            modified.Add(file.LastWriteTime);
+        public void Add(FileInfo file, string root)
+        {
+            files.Add(new FileBufferUnit()
+            {
+                name = file.FullName.Replace(root, "").Substring(1),
+                size = file.Length,
+                source = file.FullName,
+                modified = file.LastWriteTime,
+                multiStaged = file.Length > Utility.SinglePacketCap,
+            });
+
             totalSize += file.Length;
         }
 
         public override string ToString()
         {
-            return name.Count >= 1 ? name.Count.ToString() + " files" : "a file";
+            return files.Count >= 1 ? files.Count.ToString() + " files" : "a file";
+        }
+
+        public override void ToClipboard()
+        {
+            var lists = new StringCollection();
+
+            foreach (var file in files)
+            {
+                var idx = file.name.IndexOf('\\');
+                if (idx >= 0)
+                {
+                    var dst = Utility.DumpDestination + file.name.Substring(0, idx);
+                    if (!lists.Contains(dst)) lists.Add(dst);  // only copy root dir
+                }                   
+                else
+                    lists.Add(file.destination);
+            }
+
+            var data = new DataObject();
+            data.SetFileDropList(lists);
+            data.SetData("Preferred DropEffect", DragDropEffects.Move); // Cut
+            Clipboard.SetDataObject(data);
+        }
+
+        public override long GetSize()
+        {
+            return totalSize;
+        }
+
+        public bool RequireAsyncStatus()
+        {
+            return totalSize > Utility.MultiPacketCap;
         }
     }
 
     [Serializable]
-    public class DirectBuffer
+    public abstract class DirectBuffer<T> : ClipBuffer
     {
-        // Only serializable formats can get in
-        static string[] dataTypes = new string[]
-        {
-            "Bitmap", "HTML Format", "Rich Text Format", "Csv", "UnicodeText", "Text",
-            "DeviceIndepentBitmap"//, "TaggedImageFileFormat", "EnhancedMetafile", "MetaFilePict"
-        };
-
-        static string[] readableTypes = new string[]
-        {
-            "Bitmap", "HTML", "RTF", "CSV", "Text", "ASCII",
-            "DIB"//, "TIFF", "Metafile", "Metafile",
-        };
-
         public List<string> type = new List<string>();
-        public List<object> data = new List<object>();
 
-        public DirectBuffer ()
-        {
-        }
+        public List<T> data = new List<T>();
 
-        public void Add (string type, object data)
+        public void Add(string type, T data)
         {
             this.type.Add(type);
             this.data.Add(data);
         }
 
-        public static DirectBuffer FromClipboard (IDataObject data)
-        {
-            var r = new DirectBuffer();
-            foreach (var type in dataTypes)
-            {
-              
-                         r.Add(type, data.GetData(type, false));
-
-            }
-            return r.data.Count == 0 ? null : r;
-        }
-
-        public long GetSize ()
-        {
-            long size = 0;
-            foreach (var d in data)
-            {
-                if (d is string)
-                    size = Math.Max(size, (d as string).Length);
-                else if (d is Image)
-                {
-                    var sz = (d as Image).Size;
-                    size = Math.Max(size, sz.Width * sz.Height);
-                }
-            }
-            return size;
-        }
-
-        public DataObject Apply ()
+        public override void ToClipboard()
         {
             var r = new DataObject();
             for (int i = 0; i < type.Count; i++)
             {
-                r.SetData(type[i], data[i]);
+                if (data[i] != null)
+                    r.SetData(type[i], data[i]);
             }
+            Clipboard.SetDataObject(r);
+        }
+
+
+    }
+
+    [Serializable]
+    public class TextBuffer : DirectBuffer<string>
+    {
+
+        // Known convertible string formats
+        static readonly string[] dataTypes = new string[] { DataFormats.Html, DataFormats.Rtf, DataFormats.CommaSeparatedValue, DataFormats.Text, DataFormats.UnicodeText };
+
+        public override DataType Type { get { return DataType.Strings; } }
+
+        public TextBuffer() { }
+
+        public static TextBuffer FromClipboard(IDataObject data)
+        {
+            var r = new TextBuffer();
+
+            foreach (var type in dataTypes)
+            {
+                if (data.GetDataPresent(type))
+                    r.Add(type, data.GetData(type, true) as string);
+            }
+
             return r;
         }
 
         public override string ToString()
         {
-            return "a " + readableTypes[Array.IndexOf(dataTypes, type[0])];
+            return "a string data";
+        }
+
+        public override long GetSize()
+        {
+            long size = 0;
+            foreach (var d in data)
+                size += d.Length;
+
+            return size;
         }
     }
 
     [Serializable]
-    public class InvitationBuffer
+    public class BitmapBuffer : DirectBuffer<Bitmap>
     {
-        public string host;
-        public string ip;
+
+        // Known convertible string formats
+        static readonly string[] dataTypes = new string[] { DataFormats.Bitmap, DataFormats.Dib };
+
+        public override DataType Type { get { return DataType.Image; } }
+
+        public BitmapBuffer() { }
+
+        public static BitmapBuffer FromClipboard(IDataObject data)
+        {
+            var r = new BitmapBuffer();
+
+            foreach (var type in dataTypes)
+            {
+                if (data.GetDataPresent(type))
+                    r.Add(type, data.GetData(type, true) as Bitmap);
+            }
+
+            return r;
+        }
+
+        public override string ToString()
+        {
+            return "a bitmap data";
+        }
+
+        public override string GetSizeReadable()
+        {
+            if (data.Count == 1)
+                return data[0].Width + " x " + data[0].Height;
+            else
+                return base.GetSizeReadable();
+        }
+
+        public override long GetSize()
+        {
+            long size = 0;
+            foreach (var d in data)
+                if (d != null) size += d.Height * d.Width * 4;
+
+            return size;
+        }
     }
+
     public enum DataType
     {
-        Direct = 0,
-        Files = 1,
-        MetaInvitation = 2,
+        Files = 0,
+        Strings = 1,
+        Image = 2,
     }
 }

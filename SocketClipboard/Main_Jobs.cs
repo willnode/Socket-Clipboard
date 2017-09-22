@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using System.Net.Sockets;
 using System.Threading;
 using System.Runtime.Serialization.Formatters.Binary;
+using System.IO;
 
 namespace SocketClipboard
 {
@@ -16,10 +17,14 @@ namespace SocketClipboard
 
         private Thread thread_emitter;
         private Thread thread_listener;
-        
+
         private ManualResetEvent manual_emitter;
         private ManualResetEvent manual_listener;
-        
+
+        //  static byte[] UnipacketBuffer = new byte[Utility.SinglePacketCap];
+        static byte[] MultipacketBuffer = new byte[Utility.MultiPacketCap];
+        static BinaryFormatter BinFormatter = new BinaryFormatter();
+
         void ThreadListener()
         {
             while (true)
@@ -29,65 +34,75 @@ namespace SocketClipboard
                     Log(NotificationType.Receiving);
 
                     var tcp = server.AcceptTcpClient();
-                    var b = new BinaryFormatter();
-                    var g = tcp.GetStream();
+                    var stream = tcp.GetStream();
                     {
-                        ClipData f = null;
+                        ClipBuffer f = null;
                         try
                         {
-                            f = b.Deserialize(g) as ClipData;
-                        }
-                        catch (Exception ex)
-                        {
-                            Log(ex.Message);
-                            continue;
-                        }
+                            f = BinFormatter.Deserialize(stream) as ClipBuffer;
 
-                        if (f != null)
-                        {
-                            // Clip Freeze prevents the next copy buffer event makes problem.
-                            clip_freeze = true;
-
-                            Invoke(new Action(() =>
+                            if (f != null)
                             {
+                                // Clip Freeze prevents the next copy buffer event makes problem.
+                                clip_freeze = true;
 
-                                if (f.Type != DataType.MetaInvitation)
+                                if (f.Type != DataType.Files)
                                 {
-                                    f.SendToClipboard();
+                                    Invoke(new Action(f.ToClipboard));
+                                    Thread.Sleep(100);
                                 }
                                 else
                                 {
-                                    var v = f.Data as InvitationBuffer;
-                                    if (Inviter.current == null)
+                                    var files = f as FileBuffer;
+                                    int iterF = 0; long iterB = 0;
+                                    Utility.SetupTemporaryFiles(files);
+
+                                    progresser.Init(files);
+
+                                    // Here comes the second wave...
+
+                                    foreach (var file in files.files)
                                     {
-                                        if (clients.FindIndex(x => x.Name == v.host) < 0)
+                                        progresser.Update(iterF++, file.name);
+
+                                        if (file.multiStaged)
                                         {
-                                            if (MessageBox.Show("Do you trust " + v.host + " so we can add them our list?", "SocketClipboard invitation", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                                            using (var io = File.Create(file.destination))
                                             {
-                                                AddHost(v.host);
-                                                SaveConfig();
+                                                long size = 0;
+                                                int count = 0;
+                                                while (size < file.size && (count = stream.Read(MultipacketBuffer, 0, MultipacketBuffer.Length)) > 0)
+                                                {
+                                                    io.Write(MultipacketBuffer, 0, count);
+                                                    size += count;
+                                                    progresser.Update(iterB += count);
+                                                }
                                             }
                                         }
-                                        Inviter.RespondTo(v, port);
-                                    }
-                                    else
-                                    {
-                                        if (clients.FindIndex(x => x.Name == v.host) < 0)
+                                        else
                                         {
-                                            AddHost(v.host);
-                                            SaveConfig();
+                                            File.WriteAllBytes(file.destination, BinFormatter.Deserialize(stream) as byte[]);
+                                            progresser.Update(iterB += file.size);
                                         }
-                                        Inviter.current.IncrementConfirmation();
+
+                                        File.SetLastWriteTime(file.destination, file.modified);
+
                                     }
+
+                                    progresser.Done();
+
+                                    Invoke(new Action(f.ToClipboard));
+                                    Thread.Sleep(100);
                                 }
 
-                            }));
+                            }
 
-
+                            Log(NotificationType.Received, f);
                         }
 
-                        Log(NotificationType.Received, f);
-                        g.Close();
+                        catch (Exception ex) { Log("Listening failed: " + ex.Message); continue; }
+
+                        stream.Close();
                     }
                 }
 
@@ -120,17 +135,49 @@ namespace SocketClipboard
                         var task = (tcp.ConnectAsync(tcp.Name, port));
                         ok = task.Wait(1000);
                         logs[tcp.Name] = ok ? "Sent" : "Failed";
+
+                        if (ok)
+                        {
+                            var stream = tcp.GetStream();
+                            BinFormatter.Serialize(stream, clip_data);
+
+                            if (clip_data.Type == DataType.Files)
+                            {
+                                // The story doesn't end there..
+                                // Send the file buffer
+
+                                var files = clip_data as FileBuffer;
+                                foreach (var file in files.files)
+                                {
+                                    var path = file.name;
+
+
+                                    if (file.multiStaged)
+                                    {
+                                        using (var io = File.OpenRead(file.source))
+                                        {
+                                            long size = 0;
+                                            int count = 0;
+                                            while (size < file.size && (count = io.Read(MultipacketBuffer, 0, MultipacketBuffer.Length)) > 0)
+                                            {
+                                                stream.Write(MultipacketBuffer, 0, count);
+                                                size += count;
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        BinFormatter.Serialize(stream, File.ReadAllBytes(file.source));
+                                    }
+                                }
+                            }
+                            stream.Close();
+                        }
                     }
                     catch (Exception ex)
                     {
                         ok = false;
                         logs[tcp.Name] = "Failed: " + (ex.InnerException == null ? ex.Message : ex.InnerException.Message);
-                    }
-                    if (ok)
-                    {
-                        var g = tcp.GetStream();
-                        new BinaryFormatter().Serialize(g, clip_data);
-                        g.Close();
                     }
 
                     // Close and set the new one
@@ -142,12 +189,12 @@ namespace SocketClipboard
             }
         }
 
-       
+
         void StartThreader()
         {
             manual_emitter = new ManualResetEvent(true);
             manual_listener = new ManualResetEvent(true);
-         
+
             (thread_emitter = new Thread(ThreadEmitter) { IsBackground = true, Priority = ThreadPriority.Lowest }).Start();
             (thread_listener = new Thread(ThreadListener) { IsBackground = true, Priority = ThreadPriority.Lowest }).Start();
         }

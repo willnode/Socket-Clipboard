@@ -2,18 +2,21 @@
 using System;
 using System.Windows.Forms;
 using System.Net.NetworkInformation;
+using System.Linq;
 using System.Reflection;
+using System.Net;
 
 namespace SocketClipboard
 {
     public partial class Main : Form
     {
 
+        public Progresser progresser;
         public static Main current { get; private set; }
         private int port = 5000;
         private bool clip_dirty = false;
         private bool clip_freeze = false;
-        private ClipData clip_data;
+        private ClipBuffer clip_data;
 
         // 0 = off, 1 = normal, 2 = verbose
         public static int verbose = 1;
@@ -24,7 +27,7 @@ namespace SocketClipboard
         {
         }
 
-        public Main (bool minimized)
+        public Main(bool minimized)
         {
             current = this;
 
@@ -37,19 +40,21 @@ namespace SocketClipboard
 
             StartServer();
             StartThreader();
+            progresser = new Progresser(this);
 
             Log("Software started with param: " + string.Join(" ", Environment.GetCommandLineArgs()));
 
             Log(NotificationType.Startup, minimized);
+
         }
 
-        void ShowLocalHost ()
+        void ShowLocalHost()
         {
             var name = SystemInformation.ComputerName;
             lvMain.Items.Add(name).SubItems.Add("(localhost)");
         }
 
-        void ReadConfig ()
+        void ReadConfig()
         {
             var reg = GetRegPath();
             port = (int)reg.GetValue("PORT", port);
@@ -79,7 +84,7 @@ namespace SocketClipboard
             __startup.Checked = Startup;
         }
 
-        void SaveConfig ()
+        void SaveConfig()
         {
             var reg = GetRegPath();
             reg.SetValue("PORT", port);
@@ -88,13 +93,13 @@ namespace SocketClipboard
             reg.SetValue("HOSTS", string.Join("|", clients.ConvertAll(x => x.Name)));
         }
 
-        void ClipboardUpdated (object sender, EventArgs args)
+        void ClipboardUpdated(object sender, EventArgs args)
         {
             if (!clip_freeze)
-                clip_dirty = (clip_data = ClipData.FromClipboard()) != null;
+                clip_dirty = (clip_data = ClipBuffer.FromClipboard()) != null;
         }
 
-        void IPUpdated (object sender, EventArgs args)
+        void IPUpdated(object sender, EventArgs args)
         {
             StartServer();
             Log(NotificationType.IPUpdated, server.LocalEndpoint);
@@ -108,13 +113,11 @@ namespace SocketClipboard
             return key.OpenSubKey("SocketClipboard", true);
         }
 
-        void AddHost (string name)
+        void AddHost(string name)
         {
-            var item = lvMain.Items.Add(name);
-            item.SubItems.Add("...");
+            lvMain.Items.Add(name).SubItems.Add("...");
 
-            var client = new NetClient(name);
-            clients.Add(client);
+            clients.Add(new NetClient(name));
 
             Log(NotificationType.ClientAdded, name);
         }
@@ -122,10 +125,15 @@ namespace SocketClipboard
 
         private void _add_Click(object sender, EventArgs e)
         {
-            string client = "";
-            if(Utility.ShowInputDialog(ref client, "Enter Computer Name") == DialogResult.OK && !string.IsNullOrEmpty(client))
+            var local = SystemInformation.ComputerName;
+            var inviter = new Inviter(clients);
+            if (inviter.ShowDialog() == DialogResult.OK)
             {
-                AddHost(client);
+                foreach (var host in inviter.localhosts)
+                {
+                    if (host == local) continue;
+                    if (clients.All((x) => x.Name != host)) AddHost(host);                        
+                }
                 SaveConfig();
             }
 
@@ -162,7 +170,7 @@ namespace SocketClipboard
             }
         }
 
-      
+
         private void _notify_MouseClick(object sender, MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Left)
@@ -201,7 +209,7 @@ namespace SocketClipboard
 
         private void __about_Click(object sender, EventArgs e)
         {
-            if (MessageBox.Show("Socket-Clipboard is made with <3 by Wellosoft.\nThis is an open source project. Visit reposity?", "SocketClipboard " + 
+            if (MessageBox.Show("Socket-Clipboard is made with <3 by Wellosoft.\nThis is an open source project. Visit reposity?", "SocketClipboard " +
                 AssemblyName.GetAssemblyName(Assembly.GetExecutingAssembly().Location).Version.ToSt‌​ring(), MessageBoxButtons.OKCancel) == DialogResult.OK)
                 System.Diagnostics.Process.Start("https://github.com/willnode/Socket-Clipboard/");
         }
@@ -234,14 +242,16 @@ namespace SocketClipboard
             Application.Exit();
         }
 
+        internal bool ProgresserClosing()
+        {
+            // TODO: Stop the network operaion
+            // return true to reuse
+            return true;
+        }
+
         private void __active_Click(object sender, EventArgs e)
         {
             SetThreader(__active.Checked = !__active.Checked);
-        }
-
-        private void __invite_Click(object sender, EventArgs e)
-        {
-            new Inviter(port).ShowDialog(this);
         }
     }
 }

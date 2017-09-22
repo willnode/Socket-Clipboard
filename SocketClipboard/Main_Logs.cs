@@ -28,7 +28,7 @@ namespace SocketClipboard
 
         public void Log (NotificationType type, object data = null)
         {
-            var file = data as ClipData;
+            var file = data as ClipBuffer;
             switch (type)
             {
                 case NotificationType.Startup:
@@ -67,9 +67,9 @@ namespace SocketClipboard
                     var reach = logs.Values.Count(x => "Sent" == x);
                     string str;
                     if (reach == logs.Count)
-                        str = string.Format("Emitted {0} ({1}) to all clients", file.Data.ToString(), file.GetSizeReadable());
+                        str = string.Format("Emitted {0} ({1}) to all clients", file.ToString(), file.GetSizeReadable());
                     else
-                        str = string.Format("Emitted {0} ({1}) to {2} of {3} clients", file.Data.ToString(), file.GetSizeReadable(), reach, logs.Count);
+                        str = string.Format("Emitted {0} ({1}) to {2} of {3} clients", file.ToString(), file.GetSizeReadable(), reach, logs.Count);
                     Log(str);
                     Notify(verbose >= 2, "Socket-Clipboard", str, StateLog.Normal);
                     break;
@@ -85,7 +85,7 @@ namespace SocketClipboard
                         Log(string.Format("Receiving ({0:P})", (float)data), true, true);
                     break;
                 case NotificationType.Received:
-                    str = string.Format("Received {0} ({1})", file.Data.ToString(), file.GetSizeReadable());
+                    str = string.Format("Received {0} ({1})", file.ToString(), file.GetSizeReadable());
                     Log(str);
                     Notify(verbose >= 2, "Socket-Clipboard", str, StateLog.Normal);
                     break;
