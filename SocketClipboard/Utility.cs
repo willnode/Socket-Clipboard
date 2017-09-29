@@ -16,35 +16,46 @@ namespace SocketClipboard
         public static DialogResult ShowInputDialog(ref string input, string title = "Input Box")
         {
             Size size = new Size(200, 70);
-            Form inputBox = new Form();
 
-            inputBox.FormBorderStyle = FormBorderStyle.FixedDialog;
-            inputBox.MinimizeBox = false;
-            inputBox.MaximizeBox = false;
-            inputBox.ClientSize = size;
-            inputBox.StartPosition = FormStartPosition.CenterParent;
-            inputBox.Text = title;
+            Form inputBox = new Form()
+            {
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MinimizeBox = false,
+                MaximizeBox = false,
+                ClientSize = size,
+                StartPosition = FormStartPosition.CenterParent,
+                Text = title,
+            };
 
-            TextBox textBox = new TextBox();
-            textBox.Size = new Size(size.Width - 10, 23);
-            textBox.Location = new Point(5, 5);
-            textBox.Text = input;
+            TextBox textBox = new TextBox()
+            {
+                Size = new Size(size.Width - 10, 23),
+                Location = new Point(5, 5),
+                Text = input,
+            };
+
+            
+            Button okButton = new Button()
+            {
+                DialogResult = DialogResult.OK,
+                Name = "okButton",
+                Size = new Size(75, 23),
+                Text = "&OK",
+                Location = new Point(size.Width - 80 - 80, 39),
+            };
+
+            
+            Button cancelButton = new Button()
+            {
+                DialogResult = DialogResult.Cancel,
+                Name = "cancelButton",
+                Size = new Size(75, 23),
+                Text = "&Cancel",
+                Location = new Point(size.Width - 80, 39),
+            };
+
             inputBox.Controls.Add(textBox);
-
-            Button okButton = new Button();
-            okButton.DialogResult = DialogResult.OK;
-            okButton.Name = "okButton";
-            okButton.Size = new Size(75, 23);
-            okButton.Text = "&OK";
-            okButton.Location = new Point(size.Width - 80 - 80, 39);
             inputBox.Controls.Add(okButton);
-
-            Button cancelButton = new Button();
-            cancelButton.DialogResult = DialogResult.Cancel;
-            cancelButton.Name = "cancelButton";
-            cancelButton.Size = new Size(75, 23);
-            cancelButton.Text = "&Cancel";
-            cancelButton.Location = new Point(size.Width - 80, 39);
             inputBox.Controls.Add(cancelButton);
 
             inputBox.AcceptButton = okButton;
@@ -55,48 +66,37 @@ namespace SocketClipboard
             return result;
         }
 
-        static readonly long[] maxSizes = new long[] { 1024 * 1024, 1024 * 1024 * 50, 1024 * 1024 * 1024, long.MaxValue };
-
         public static FileBuffer FileDropsToBuffer(string[] paths)
         {
+            var policy = Main.current.config.FileTransfer;
+            if (policy == Main.FileTransferFlag.Block | (paths.Length > 1 & policy == Main.FileTransferFlag.Single)) return null;
+
             try
             {
-                var maxSize = maxSizes[Main.limit];
+                var files = new FileBuffer();
+
+                for (int i = 0; i < paths.Length; i++)
                 {
-                    var files = new FileBuffer();
-                    var len = 0L;
-                    for (int i = 0; i < paths.Length; i++)
+                    if (File.Exists(paths[i]))
                     {
-                        if (File.Exists(paths[i]))
-                        {
-                            var file = new FileInfo(paths[i]);
-                            if ((len += file.Length) > maxSize)
-                            {
-                                Main.current.Log(NotificationType.BufferDiscarded, GetBytesReadable(len));
-                                return null;
-                            }
-                            files.Add(file);
-                        }
+                        files.Add(new FileInfo(paths[i]));
                     }
-                    for (int i = 0; i < paths.Length; i++)
-                    {
-                        if (Directory.Exists(paths[i]))
-                        {
-                            var iter = Directory.EnumerateFiles(paths[i], "*", SearchOption.AllDirectories);
-                            foreach (var filePath in iter)
-                            {
-                                var file = new FileInfo(filePath);
-                                if ((len += file.Length) > maxSize)
-                                {
-                                    Main.current.Log(NotificationType.BufferDiscarded, GetBytesReadable(len));
-                                    return null;
-                                }
-                                files.Add(file, Path.GetDirectoryName(paths[i]));
-                            }
-                        }
-                    }
-                    return files;
                 }
+
+                for (int i = 0; i < paths.Length; i++)
+                {
+                    if (Directory.Exists(paths[i]))
+                    {
+                        var root = Path.GetDirectoryName(paths[i]);
+
+                        foreach (var filePath in Directory.EnumerateFiles(paths[i], "*", SearchOption.AllDirectories))
+                        {
+                            files.Add(new FileInfo(filePath), root);
+                        }
+                    }
+                }
+
+                return files;
             }
             catch (Exception)
             {
@@ -119,13 +119,12 @@ namespace SocketClipboard
             foreach (var file in dir.EnumerateFiles()) file.Delete();
             foreach (var fold in dir.EnumerateDirectories()) fold.Delete(true);
 
+            // Make empty directories
             foreach (var file in buffer.files)
-            {
                 Directory.CreateDirectory(Path.GetDirectoryName(file.destination));
-            }
         }
 
-    
+
 
         public static IPAddress GetLocalIPAddress()
         {
@@ -137,7 +136,7 @@ namespace SocketClipboard
                     return ip;
                 }
             }
-            return IPAddress.Any;
+            return null;
         }
 
         // Returns the human-readable file size for an arbitrary, 64-bit file size 
@@ -218,14 +217,7 @@ namespace SocketClipboard
             public uint dwTimeout;
         }
 
-        /// <summary>
-        /// Send form taskbar notification, the Window will flash until get's focus
-        /// <remarks>
-        /// This method allows to Flash a Window, signifying to the user that some major event occurred within the application that requires their attention. 
-        /// </remarks>
-        /// </summary>
-        /// <param name="form"></param>
-        /// <returns></returns>
+        /// <summary> Flash the window <remarks>
         public static bool Flash(this Form form)
         {
             IntPtr hWnd = form.Handle;
@@ -239,11 +231,32 @@ namespace SocketClipboard
 
             return FlashWindowEx(ref fInfo);
         }
+
+        public static bool Contains(this List<NetClient> list, string name)
+        {
+            return IndexOf(list, name) >= 0;
+        }
+
+        public static int IndexOf(this List<NetClient> list, string name)
+        {
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (list[i].Name == name) return i;
+            }
+            return -1;
+        }
+
+        public static string DeepMessage(this Exception ex)
+        {
+            return (ex.InnerException == null ? ex.Message : ex.InnerException.Message);
+        }
     }
 
     public class NetClient : TcpClient
     {
         public string Name;
+
+        public string Log = "...";
 
         public NetClient(string name) : base()
         {

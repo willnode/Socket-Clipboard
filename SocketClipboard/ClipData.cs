@@ -67,23 +67,19 @@ namespace SocketClipboard
 
         public void Add(FileInfo file)
         {
-            files.Add(new FileBufferUnit()
-            {
-                name = file.Name,
-                size = file.Length,
-                source = file.FullName,
-                modified = file.LastWriteTime,
-                multiStaged = file.Length > Utility.SinglePacketCap,
-            });
-
-            totalSize += file.Length;
+            AddInternal(file, file.Name);
         }
 
         public void Add(FileInfo file, string root)
         {
+            AddInternal(file, file.FullName.Replace(root, "").Substring(1));
+        }
+
+        void AddInternal (FileInfo file, string name)
+        {
             files.Add(new FileBufferUnit()
             {
-                name = file.FullName.Replace(root, "").Substring(1),
+                name = name,
                 size = file.Length,
                 source = file.FullName,
                 modified = file.LastWriteTime,

@@ -10,18 +10,13 @@ namespace SocketClipboard
 {
     public partial class Main : Form
     {
-
+        public SocketConfig config;
         public Progresser progresser;
         public static Main current { get; private set; }
-        private int port = 5000;
+        // private int port = 5000;
         private bool clip_dirty = false;
         private bool clip_freeze = false;
         private ClipBuffer clip_data;
-
-        // 0 = off, 1 = normal, 2 = verbose
-        public static int verbose = 1;
-        // 0 = 1 MB, 1 = 50 MB, 2 = 1 GB, 3 = Unlimited
-        public static int limit = 1;
 
         public Main() : this(false)
         {
@@ -30,17 +25,19 @@ namespace SocketClipboard
         public Main(bool minimized)
         {
             current = this;
+            progresser = new Progresser(this);
+            config = new SocketConfig();
 
             InitializeComponent();
             ShowLocalHost();
-            ReadConfig();
+            StartServer();
+            config.Init(this);
+
 
             ClipEvent.ClipboardUpdate += ClipboardUpdated;
             NetworkChange.NetworkAddressChanged += IPUpdated;
 
-            StartServer();
             StartThreader();
-            progresser = new Progresser(this);
 
             Log("Software started with param: " + string.Join(" ", Environment.GetCommandLineArgs()));
 
@@ -54,55 +51,20 @@ namespace SocketClipboard
             lvMain.Items.Add(name).SubItems.Add("(localhost)");
         }
 
-        void ReadConfig()
-        {
-            var reg = GetRegPath();
-            port = (int)reg.GetValue("PORT", port);
-            verbose = (int)reg.GetValue("VERBOSE", verbose);
-            limit = (int)reg.GetValue("LIMIT", limit);
-            var hosts2 = (reg.GetValue("HOSTS") as string);
-            if (hosts2 != null)
-            {
-                var hosts = hosts2.Split('|');
-                foreach (var host in hosts)
-                {
-                    AddHost(host);
-                }
-            }
-
-            // Update UI
-
-            _port.Text = "PORT: " + port.ToString();
-            __notify0.Checked = verbose == (int)__notify0.Tag;
-            __notify1.Checked = verbose == (int)__notify1.Tag;
-            __notify2.Checked = verbose == (int)__notify2.Tag;
-
-            __quota0.Checked = limit == (int)__quota0.Tag;
-            __quota1.Checked = limit == (int)__quota1.Tag;
-            __quota2.Checked = limit == (int)__quota2.Tag;
-            __quota3.Checked = limit == (int)__quota3.Tag;
-            __startup.Checked = Startup;
-        }
-
-        void SaveConfig()
-        {
-            var reg = GetRegPath();
-            reg.SetValue("PORT", port);
-            reg.SetValue("VERBOSE", verbose);
-            reg.SetValue("LIMIT", limit);
-            reg.SetValue("HOSTS", string.Join("|", clients.ConvertAll(x => x.Name)));
-        }
-
         void ClipboardUpdated(object sender, EventArgs args)
         {
-            if (!clip_freeze)
+            if (!clip_freeze && config.Active && !config.Offline)
                 clip_dirty = (clip_data = ClipBuffer.FromClipboard()) != null;
         }
 
         void IPUpdated(object sender, EventArgs args)
         {
             StartServer();
-            Log(NotificationType.IPUpdated, server.LocalEndpoint);
+            if (server != null)
+                Log(NotificationType.IPUpdated, server.LocalEndpoint);
+            else
+                Log(NotificationType.IPOffline, null);
+            config.Validate();
         }
 
         RegistryKey GetRegPath()
@@ -113,7 +75,7 @@ namespace SocketClipboard
             return key.OpenSubKey("SocketClipboard", true);
         }
 
-        void AddHost(string name)
+        internal void AddHost(string name)
         {
             lvMain.Items.Add(name).SubItems.Add("...");
 
@@ -132,25 +94,26 @@ namespace SocketClipboard
                 foreach (var host in inviter.localhosts)
                 {
                     if (host == local) continue;
-                    if (clients.All((x) => x.Name != host)) AddHost(host);                        
+                    if (clients.All((x) => x.Name != host)) AddHost(host);
                 }
-                SaveConfig();
+                config.Validate();
+                config.SaveHosts();
             }
 
         }
 
         private void _port_Click(object sender, EventArgs e)
         {
-            string __port = port.ToString();
+            string __port = config.Port.ToString();
             if (Utility.ShowInputDialog(ref __port, "Enter new IP") == DialogResult.OK)
             {
                 var p = int.Parse(__port);
                 if (p >= 0 && p <= 65535)
                 {
-                    port = p;
-                    _port.Text = "PORT: " + port.ToString();
-                    SaveConfig();
-                    Log(NotificationType.PortUpdated, port);
+                    config.Port = p;
+                    config.Validate();
+                    config.SaveConfig();
+                    Log(NotificationType.PortUpdated, p);
                 }
             }
         }
@@ -166,10 +129,26 @@ namespace SocketClipboard
                 tcp.Close();
                 clients.Remove(tcp);
                 item.Remove();
-                SaveConfig();
             }
+            config.Validate();
+            config.SaveHosts();
         }
 
+        private void __clean_Click(object sender, EventArgs e)
+        {
+            foreach (ListViewItem item in lvMain.Items)
+            {
+                if (item.Index == 0)
+                    continue;
+
+                var tcp = clients[item.Index - 1];
+                tcp.Close();
+                clients.Remove(tcp);
+                item.Remove();
+            }
+            config.Validate();
+            config.SaveHosts();
+        }
 
         private void _notify_MouseClick(object sender, MouseEventArgs e)
         {
@@ -184,28 +163,10 @@ namespace SocketClipboard
 
         private void __startup_Click(object sender, EventArgs e)
         {
-            Startup = __startup.Checked = !__startup.Checked;
+            config.RunAtStartup = __runat.Checked = !__runat.Checked;
         }
 
-        private bool Startup
-        {
-            get
-            {
-                RegistryKey rk = Registry.CurrentUser.OpenSubKey
-                   ("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
-                return (string)rk.GetValue("Socket-Clipboard", null) == Application.ExecutablePath + " --background";
-            }
-            set
-            {
-                RegistryKey rk = Registry.CurrentUser.OpenSubKey
-                    ("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
 
-                if (value)
-                    rk.SetValue("Socket-Clipboard", Application.ExecutablePath + " --background");
-                else
-                    rk.DeleteValue("Socket-Clipboard", false);
-            }
-        }
 
         private void __about_Click(object sender, EventArgs e)
         {
@@ -225,17 +186,17 @@ namespace SocketClipboard
             Environment.Exit(0);
         }
 
-        private void __quota0_Click(object sender, EventArgs e)
-        {
-            limit = (int)((ToolStripMenuItem)sender).Tag;
-            SaveConfig();
-        }
+        //private void __quota0_Click(object sender, EventArgs e)
+        //{
+        //    limit = (int)((ToolStripMenuItem)sender).Tag;
+        //    SaveConfig();
+        //}
 
-        private void __notify0_Click(object sender, EventArgs e)
-        {
-            verbose = (int)((ToolStripMenuItem)sender).Tag;
-            SaveConfig();
-        }
+        //private void __notify0_Click(object sender, EventArgs e)
+        //{
+        //    verbose = (int)((ToolStripMenuItem)sender).Tag;
+        //    SaveConfig();
+        //}
 
         private void Main_FormClosing(object sender, FormClosingEventArgs e)
         {
@@ -249,9 +210,50 @@ namespace SocketClipboard
             return true;
         }
 
+        private void ___toggle_Click(object sender, EventArgs e)
+        {
+            if (this.Visible = !this.Visible)
+                config.Validate();
+        }
+
         private void __active_Click(object sender, EventArgs e)
         {
-            SetThreader(__active.Checked = !__active.Checked);
+            config.Active = !config.Active;
+            config.Validate(true);
+        }
+
+        private void __solo_Click(object sender, EventArgs e)
+        {
+            config.Solo = !config.Solo;
+            config.Validate(true);
+        }
+
+        private void __mute_Click(object sender, EventArgs e)
+        {
+            config.Mute = !config.Mute;
+            config.Validate(true);
+        }
+
+        int soloIndex = -1;
+
+        private void lvMain_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            soloIndex = lvMain.SelectedIndices.Count == 0 ? -1 : lvMain.SelectedIndices[0] - 1;
+            if (config.Solo)
+                config.Validate();
+        }
+
+        private void __file0_Click(object sender, EventArgs e)
+        {
+            config.FileTransfer = (FileTransferFlag)(sender as ToolStripMenuItem).Tag;
+            config.Validate(true);
+        }
+
+        private void __notify0_Click(object sender, EventArgs e)
+        {
+            config.Notify = (NotifyFlag)(sender as ToolStripMenuItem).Tag;
+            config.Validate(true);
         }
     }
+
 }

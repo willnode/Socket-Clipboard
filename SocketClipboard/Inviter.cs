@@ -18,13 +18,18 @@ namespace SocketClipboard
             var font = new Font(Font, FontStyle.Italic);
             InviterUtility.GetLocalComputers(localhosts);
 
-            foreach (var host in localhosts)
+            for (int i = localhosts.Count - 1; i >= 0; i--)
             {
-                if (host == local) continue;
+                var host = localhosts[i];
+                if (host == local) { localhosts.RemoveAt(i); continue; }
 
                 var exist = clients.Any((x) => x.Name == host);
-                _list.Items.Add(new ListViewItem(host) { Checked = !exist,
-                    Font = exist ? font : Font, ForeColor = exist ? Color.Gray : Color.Black });
+                _list.Items.Add(new ListViewItem(host)
+                {
+                    Checked = !exist,
+                    Font = exist ? font : Font,
+                    ForeColor = exist ? Color.Gray : Color.Black
+                });
             }
         }
 
