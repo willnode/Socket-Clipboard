@@ -41,7 +41,7 @@
             this._prog.Location = new System.Drawing.Point(80, 0);
             this._prog.MarqueeAnimationSpeed = 1;
             this._prog.Name = "_prog";
-            this._prog.Size = new System.Drawing.Size(213, 33);
+            this._prog.Size = new System.Drawing.Size(213, 42);
             this._prog.TabIndex = 0;
             this._prog.Value = 50;
             // 
@@ -53,7 +53,7 @@
             this._l.Margin = new System.Windows.Forms.Padding(3);
             this._l.MinimumSize = new System.Drawing.Size(0, 20);
             this._l.Name = "_l";
-            this._l.Size = new System.Drawing.Size(80, 33);
+            this._l.Size = new System.Drawing.Size(80, 42);
             this._l.TabIndex = 1;
             this._l.Text = "2.00 MB\r\n4.00 MB";
             this._l.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -66,7 +66,7 @@
             this._r.Margin = new System.Windows.Forms.Padding(3);
             this._r.MinimumSize = new System.Drawing.Size(0, 20);
             this._r.Name = "_r";
-            this._r.Size = new System.Drawing.Size(81, 33);
+            this._r.Size = new System.Drawing.Size(81, 42);
             this._r.TabIndex = 2;
             this._r.Text = "( 0 / 0 )\r\nFile.apx";
             this._r.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -75,7 +75,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(374, 33);
+            this.ClientSize = new System.Drawing.Size(374, 42);
             this.Controls.Add(this._prog);
             this.Controls.Add(this._l);
             this.Controls.Add(this._r);

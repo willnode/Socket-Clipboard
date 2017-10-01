@@ -66,6 +66,7 @@
   <ItemGroup>
     <Compile Include="ClipData.cs" />
     <Compile Include="ClipEvent.cs" />
+    <Compile Include="CopyServer.cs" />
     <Compile Include="Inviter.cs">
       <SubType>Form</SubType>
     </Compile>

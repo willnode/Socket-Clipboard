@@ -12,7 +12,7 @@ namespace SocketClipboard
     {
         public SocketConfig config;
         public Progresser progresser;
-        public static Main current { get; private set; }
+        public static Main Current { get; private set; }
         // private int port = 5000;
         private bool clip_dirty = false;
         private bool clip_freeze = false;
@@ -24,7 +24,7 @@ namespace SocketClipboard
 
         public Main(bool minimized)
         {
-            current = this;
+            Current = this;
             progresser = new Progresser(this);
             config = new SocketConfig();
 
@@ -171,7 +171,7 @@ namespace SocketClipboard
         private void __about_Click(object sender, EventArgs e)
         {
             if (MessageBox.Show("Socket-Clipboard is made with <3 by Wellosoft.\nThis is an open source project. Visit reposity?", "SocketClipboard " +
-                AssemblyName.GetAssemblyName(Assembly.GetExecutingAssembly().Location).Version.ToSt‌​ring(), MessageBoxButtons.OKCancel) == DialogResult.OK)
+                Utility.GetVersion().ToSt‌​ring(), MessageBoxButtons.OKCancel) == DialogResult.OK)
                 System.Diagnostics.Process.Start("https://github.com/willnode/Socket-Clipboard/");
         }
 
@@ -186,20 +186,9 @@ namespace SocketClipboard
             Environment.Exit(0);
         }
 
-        //private void __quota0_Click(object sender, EventArgs e)
-        //{
-        //    limit = (int)((ToolStripMenuItem)sender).Tag;
-        //    SaveConfig();
-        //}
-
-        //private void __notify0_Click(object sender, EventArgs e)
-        //{
-        //    verbose = (int)((ToolStripMenuItem)sender).Tag;
-        //    SaveConfig();
-        //}
-
         private void Main_FormClosing(object sender, FormClosingEventArgs e)
         {
+            if (copyserver != null) copyserver.SetRun(false);
             Application.Exit();
         }
 
@@ -253,6 +242,19 @@ namespace SocketClipboard
         {
             config.Notify = (NotifyFlag)(sender as ToolStripMenuItem).Tag;
             config.Validate(true);
+        }
+
+        public CopyServer copyserver;
+        private void __server_Click(object sender, EventArgs e)
+        {
+            if (copyserver == null)
+                copyserver = new CopyServer(config.Port + 1);
+            copyserver.SetRun(__server.Checked);
+        }
+
+        private void __reset_Click(object sender, EventArgs e)
+        {
+            config.Reset();
         }
     }
 

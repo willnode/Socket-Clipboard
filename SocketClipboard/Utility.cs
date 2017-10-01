@@ -8,6 +8,11 @@ using System.Net.Sockets;
 using System.Drawing;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Security.Principal;
+using System.Diagnostics;
+
+using System.Windows.Forms;
+using System.Reflection;
 
 namespace SocketClipboard
 {
@@ -68,7 +73,7 @@ namespace SocketClipboard
 
         public static FileBuffer FileDropsToBuffer(string[] paths)
         {
-            var policy = Main.current.config.FileTransfer;
+            var policy = Main.Current.config.FileTransfer;
             if (policy == Main.FileTransferFlag.Block | (paths.Length > 1 & policy == Main.FileTransferFlag.Single)) return null;
 
             try
@@ -107,9 +112,7 @@ namespace SocketClipboard
 
         public static readonly string DumpDestination = Path.GetTempPath() + "\\SocketDumps\\";
 
-        public const long SinglePacketCap = 1024 * 1024 * 16; // 16 MB is max file size for single-time transmit
-
-        public const long MultiPacketCap = 1024 * 1024 * 1; // Large files only
+        public const int MultiPacketCap = 1024 * 256;
 
         public static void SetupTemporaryFiles(FileBuffer buffer)
         {
@@ -194,7 +197,29 @@ namespace SocketClipboard
             else return s.Substring(0, length);
         }
 
+        public static bool HaveAdminAccess
+        {
+            get
+            {
+                WindowsIdentity identity = WindowsIdentity.GetCurrent();
+                WindowsPrincipal principal = new WindowsPrincipal(identity);
+                return principal.IsInRole(WindowsBuiltInRole.Administrator);
+            }
+            set
+            {
+                if (!value || HaveAdminAccess) return;
+                // Restart
+                var exe = Process.GetCurrentProcess().MainModule.FileName;
+                var strt = new ProcessStartInfo(exe) { Verb = "runas" };
+                Process.Start(strt);
+                Environment.Exit(0);
+            }
+        }
 
+        public static Version GetVersion ()
+        {
+            return AssemblyName.GetAssemblyName(Assembly.GetExecutingAssembly().Location).Version;
+        }
         // To support flashing.
         [DllImport("user32.dll", CallingConvention = CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.Bool)]

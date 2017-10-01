@@ -68,8 +68,7 @@ namespace SocketClipboard
                 FileTransfer = (FileTransferFlag)reg.GetValue("FILE", FileTransfer);
                 Notify = (NotifyFlag)reg.GetValue("NOTIFY", Notify);
 
-                var hosts2 = reg.GetValue("HOSTS", null) as string;
-                if (hosts2 != null)
+                if (reg.GetValue("HOSTS", null) is string hosts2)
                 {
                     var hosts = hosts2.Split('|');
                     foreach (var host in hosts) main.AddHost(host);
@@ -81,8 +80,19 @@ namespace SocketClipboard
                 main.__notify0.Tag = NotifyFlag.Silent;
                 main.__notify1.Tag = NotifyFlag.Informative;
                 main.__notify2.Tag = NotifyFlag.Verbose;
-
+                main.__version.Text = "v" + Utility.GetVersion();
                 Validate();
+            }
+
+            public void Reset ()
+            {
+                Active = true;
+                Mute = false;
+                Solo = false;
+                Port = 5000;
+                FileTransfer = FileTransferFlag.Allow;
+                Notify = NotifyFlag.Informative;
+                Validate(true);
             }
 
             public void Validate()

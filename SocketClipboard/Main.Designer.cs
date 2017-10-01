@@ -65,12 +65,13 @@
             this.@__notify2 = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
             this.@__reset = new System.Windows.Forms.ToolStripMenuItem();
-            this.exportToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
             this.helpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.@__about = new System.Windows.Forms.ToolStripMenuItem();
             this.@__restart = new System.Windows.Forms.ToolStripMenuItem();
             this.@__quit = new System.Windows.Forms.ToolStripMenuItem();
             this._log = new System.Windows.Forms.ListBox();
+            this.@__server = new System.Windows.Forms.ToolStripMenuItem();
+            this.@__version = new System.Windows.Forms.ToolStripMenuItem();
             this.statusStrip1.SuspendLayout();
             this._notify_strip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this._split)).BeginInit();
@@ -162,7 +163,7 @@
             // 
             this.___toggle.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
             this.___toggle.Name = "___toggle";
-            this.___toggle.Size = new System.Drawing.Size(152, 22);
+            this.___toggle.Size = new System.Drawing.Size(127, 22);
             this.___toggle.Text = "Toggle UI";
             this.___toggle.Click += new System.EventHandler(this.___toggle_Click);
             // 
@@ -171,26 +172,26 @@
             this.___active.Checked = true;
             this.___active.CheckState = System.Windows.Forms.CheckState.Checked;
             this.___active.Name = "___active";
-            this.___active.Size = new System.Drawing.Size(152, 22);
+            this.___active.Size = new System.Drawing.Size(127, 22);
             this.___active.Text = "Active";
             this.___active.Click += new System.EventHandler(this.@__active_Click);
             // 
             // toolStripSeparator1
             // 
             this.toolStripSeparator1.Name = "toolStripSeparator1";
-            this.toolStripSeparator1.Size = new System.Drawing.Size(149, 6);
+            this.toolStripSeparator1.Size = new System.Drawing.Size(124, 6);
             // 
             // ___restart
             // 
             this.___restart.Name = "___restart";
-            this.___restart.Size = new System.Drawing.Size(152, 22);
+            this.___restart.Size = new System.Drawing.Size(127, 22);
             this.___restart.Text = "Restart";
             this.___restart.Click += new System.EventHandler(this.@__restart_Click);
             // 
             // ___quit
             // 
             this.___quit.Name = "___quit";
-            this.___quit.Size = new System.Drawing.Size(152, 22);
+            this.___quit.Size = new System.Drawing.Size(127, 22);
             this.___quit.Text = "Quit";
             this.___quit.Click += new System.EventHandler(this.@__quit_Click);
             // 
@@ -243,7 +244,7 @@
             this.@__add.Name = "__add";
             this.@__add.ShortcutKeyDisplayString = "Insert";
             this.@__add.ShortcutKeys = System.Windows.Forms.Keys.Insert;
-            this.@__add.Size = new System.Drawing.Size(163, 22);
+            this.@__add.Size = new System.Drawing.Size(167, 22);
             this.@__add.Text = "Add";
             this.@__add.ToolTipText = "Add hosts to the list";
             this.@__add.Click += new System.EventHandler(this._add_Click);
@@ -253,7 +254,7 @@
             this.@__rem.Name = "__rem";
             this.@__rem.ShortcutKeyDisplayString = "Delete";
             this.@__rem.ShortcutKeys = System.Windows.Forms.Keys.Delete;
-            this.@__rem.Size = new System.Drawing.Size(163, 22);
+            this.@__rem.Size = new System.Drawing.Size(167, 22);
             this.@__rem.Text = "Remove";
             this.@__rem.ToolTipText = "Remove selected hosts";
             this.@__rem.Click += new System.EventHandler(this._remove_Click);
@@ -313,7 +314,7 @@
             this.notificationToolStripMenuItem1,
             this.toolStripSeparator2,
             this.@__reset,
-            this.exportToolStripMenuItem1});
+            this.@__server});
             this.configToolStripMenuItem.Name = "configToolStripMenuItem";
             this.configToolStripMenuItem.Size = new System.Drawing.Size(55, 20);
             this.configToolStripMenuItem.Text = "Config";
@@ -342,6 +343,7 @@
             this.@__file0.Name = "__file0";
             this.@__file0.Size = new System.Drawing.Size(155, 22);
             this.@__file0.Text = "Block";
+            this.@__file0.ToolTipText = "Don\'t send files";
             this.@__file0.Click += new System.EventHandler(this.@__file0_Click);
             // 
             // __file1
@@ -349,6 +351,7 @@
             this.@__file1.Name = "__file1";
             this.@__file1.Size = new System.Drawing.Size(155, 22);
             this.@__file1.Text = "Single File Only";
+            this.@__file1.ToolTipText = "Only if I copy a single file";
             this.@__file1.Click += new System.EventHandler(this.@__file0_Click);
             // 
             // __file2
@@ -356,6 +359,7 @@
             this.@__file2.Name = "__file2";
             this.@__file2.Size = new System.Drawing.Size(155, 22);
             this.@__file2.Text = "Allow";
+            this.@__file2.ToolTipText = "Send always";
             this.@__file2.Click += new System.EventHandler(this.@__file0_Click);
             // 
             // notificationToolStripMenuItem1
@@ -400,16 +404,13 @@
             this.@__reset.Name = "__reset";
             this.@__reset.Size = new System.Drawing.Size(152, 22);
             this.@__reset.Text = "Reset";
-            // 
-            // exportToolStripMenuItem1
-            // 
-            this.exportToolStripMenuItem1.Name = "exportToolStripMenuItem1";
-            this.exportToolStripMenuItem1.Size = new System.Drawing.Size(152, 22);
-            this.exportToolStripMenuItem1.Text = "Export";
+            this.@__reset.ToolTipText = "Reset configuration to default";
+            this.@__reset.Click += new System.EventHandler(this.@__reset_Click);
             // 
             // helpToolStripMenuItem
             // 
             this.helpToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.@__version,
             this.@__about,
             this.@__restart,
             this.@__quit});
@@ -452,6 +453,23 @@
             this._log.ScrollAlwaysVisible = true;
             this._log.Size = new System.Drawing.Size(96, 100);
             this._log.TabIndex = 0;
+            // 
+            // __server
+            // 
+            this.@__server.CheckOnClick = true;
+            this.@__server.Name = "__server";
+            this.@__server.Size = new System.Drawing.Size(152, 22);
+            this.@__server.Text = "Run Server";
+            this.@__server.ToolTipText = "Run copyserver so that your neighbor can download a copy of socket-clipboard dire" +
+    "ctly if they haven\'t";
+            this.@__server.Click += new System.EventHandler(this.@__server_Click);
+            // 
+            // __version
+            // 
+            this.@__version.Enabled = false;
+            this.@__version.Name = "__version";
+            this.@__version.Size = new System.Drawing.Size(152, 22);
+            this.@__version.Text = "v1.3.0.0";
             // 
             // Main
             // 
@@ -519,11 +537,12 @@
         private System.Windows.Forms.ToolStripMenuItem __notify2;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;
         private System.Windows.Forms.ToolStripMenuItem __reset;
-        private System.Windows.Forms.ToolStripMenuItem exportToolStripMenuItem1;
         private System.Windows.Forms.ToolStripMenuItem helpToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem __about;
         private System.Windows.Forms.ToolStripMenuItem __quit;
         private System.Windows.Forms.ToolStripMenuItem __restart;
+        private System.Windows.Forms.ToolStripMenuItem __server;
+        private System.Windows.Forms.ToolStripMenuItem __version;
     }
 }
 

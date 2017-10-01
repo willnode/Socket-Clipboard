@@ -15,11 +15,12 @@ namespace SocketClipboard
         PortUpdated = 32,
         Sending = 64,
         Sent = 128,
-        //FailedSent = 256,
+        FailedReceive = 256,
         Receiving = 512,
         Received = 1024,
         ClientAdded = 2048,
         Error = 0,
+        Copyserver = 4096,
     }
 
     public partial class Main : Form
@@ -66,6 +67,10 @@ namespace SocketClipboard
                     Log("Receiving...");
                     Notify(NotifyFlag.Internal, null, null, StateLog.Listen);
                     break;
+                case NotificationType.FailedReceive:
+                    Log(str = "Listening failed: " + data as string);
+                    Notify(NotifyFlag.Verbose, "Socket-Clipboard", str, StateLog.Normal);
+                    break;
                 case NotificationType.Received:
                     Log(str = string.Format("Received {0} ({1})", file.ToString(), file.GetSizeReadable()));
                     Notify(NotifyFlag.Verbose, "Socket-Clipboard", str, StateLog.Normal);
@@ -75,6 +80,21 @@ namespace SocketClipboard
                     break;
                 case NotificationType.Error:
                     Log((((Exception)data).Message));
+                    break;
+                case NotificationType.Copyserver:
+                    if (data != null)
+                    {
+                        if (data is string)
+                        {
+                            Log(str = "Copyserver is started on " + (string)data);
+                            Notify(NotifyFlag.Verbose, "Socket-Clipboard", str, StateLog.Normal);
+                        } else
+                        {
+                            Log(str = "Copyserver received a GET request");
+                        }
+                    }
+                    else
+                        Log("Copyserver is stopped");
                     break;
                 default:
                     break;

@@ -42,8 +42,6 @@ namespace SocketClipboard
         public long size;
         /// Relative name + directory path
         public string name;
-        /// True if this file will transmitted broadcastly
-        public bool multiStaged;
         /// File datestamp
         public DateTime modified;
         /// Source path (useful only for sender)
@@ -83,7 +81,6 @@ namespace SocketClipboard
                 size = file.Length,
                 source = file.FullName,
                 modified = file.LastWriteTime,
-                multiStaged = file.Length > Utility.SinglePacketCap,
             });
 
             totalSize += file.Length;

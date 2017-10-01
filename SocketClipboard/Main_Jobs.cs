@@ -1,20 +1,63 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
-using System.Net.Sockets;
 using System.Threading;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.IO;
+using System.Diagnostics;
 
 namespace SocketClipboard
 {
+    public class MultipacketSwap
+    {
+        public byte[] data1 = new byte[Utility.MultiPacketCap];
+        public byte[] data2 = new byte[Utility.MultiPacketCap];
+
+        public int disk_iter;
+        public int netw_iter;
+        public bool listening;
+        public bool finished;
+
+        public byte[] GetForDisk()
+        {
+            if (listening) while (netw_iter < disk_iter + 1 & !finished) { Thread.Sleep(0); } // Block until network finishes
+            else while (netw_iter < disk_iter & !finished) { Thread.Sleep(0); }
+            return disk_iter % 2 == 0 ? data1 : data2;
+        }
+
+        public byte[] GetForNetw()
+        {
+            if (listening) while (disk_iter < netw_iter & !finished) { Thread.Sleep(0); } // Block until disk finishes
+            else while (disk_iter < netw_iter + 1 & !finished) { Thread.Sleep(0); }
+            return netw_iter % 2 == 0 ? data1 : data2;
+        }
+
+        public void DiskDone()
+        {
+            disk_iter++;
+        }
+
+        public void NetwDone()
+        {
+            netw_iter++;
+        }
+
+        public void Reset(bool listening)
+        {
+            disk_iter = 0;
+            netw_iter = 0;
+            this.listening = listening;
+            this.finished = false;
+        }
+    }
+
     public partial class Main : Form
     {
 
         private NetListener server;
         private List<NetClient> clients = new List<NetClient>();
 
-        private Thread thread_emitter, thread_listener;
+        private Thread thread_emitter, thread_listener, thread_disk;
 
         static byte[] MultipacketBuffer = new byte[Utility.MultiPacketCap];
         static BinaryFormatter BinFormatter = new BinaryFormatter();
@@ -48,7 +91,10 @@ namespace SocketClipboard
 
                             progresser.Init(files);
 
-                            ListenToFiles(stream, files);
+                            using (var buffer = new BufferedStream(stream))
+                            {
+                                ListenToFiles(buffer, files);
+                            }
 
                             progresser.Done();
                         }
@@ -60,7 +106,7 @@ namespace SocketClipboard
                         Log(NotificationType.Received, f);
                     }
 
-                    catch (Exception ex) { Log("Listening failed: " + ex.Message); continue; }
+                    catch (Exception ex) { Log(NotificationType.FailedReceive, ex.Message); continue; }
 
                     stream.Close();
                 }
@@ -71,37 +117,6 @@ namespace SocketClipboard
             }
         }
 
-        private void ListenToFiles(NetworkStream stream, FileBuffer files)
-        {
-            int iterF = 0; long iterB = 0;
-
-            foreach (var file in files.files)
-            {
-                progresser.Update(iterF++, file.name);
-
-                if (file.multiStaged)
-                {
-                    using (var io = File.Create(file.destination))
-                    {
-                        long size = 0;
-                        int count = 0;
-                        while (size < file.size && (count = stream.Read(MultipacketBuffer, 0, MultipacketBuffer.Length)) > 0)
-                        {
-                            io.Write(MultipacketBuffer, 0, count);
-                            size += count;
-                            progresser.Update(iterB += count);
-                        }
-                    }
-                }
-                else
-                {
-                    File.WriteAllBytes(file.destination, BinFormatter.Deserialize(stream) as byte[]);
-                    progresser.Update(iterB += file.size);
-                }
-
-                File.SetLastWriteTime(file.destination, file.modified);
-            }
-        }
 
         void ThreadEmitter()
         {
@@ -139,7 +154,10 @@ namespace SocketClipboard
                                 // The story doesn't end there..
                                 // Send the file buffer
 
-                                EmitFiles(stream);
+                                using (var buffer = new BufferedStream(stream))
+                                {
+                                    EmitFiles(buffer);
+                                }
                             }
 
                             stream.Close();
@@ -160,28 +178,80 @@ namespace SocketClipboard
             }
         }
 
-        private void EmitFiles(NetworkStream stream)
+        private void ListenToFiles(BufferedStream stream, FileBuffer files)
         {
-            var files = clip_data as FileBuffer;
-            foreach (var file in files.files)
+            packets.Reset(true);
+            disk_files = files;
+            disk_awoker.Set();
+
+            while (!packets.finished)
             {
-                if (file.multiStaged)
-                {
-                    using (var io = File.OpenRead(file.source))
-                    {
-                        long size = 0;
-                        int count = 0;
-                        while (size < file.size && (count = io.Read(MultipacketBuffer, 0, MultipacketBuffer.Length)) > 0)
+                var buffer = packets.GetForNetw();
+                disk_count = stream.Read(buffer, 0, buffer.Length);
+                packets.NetwDone();
+            }
+        }
+
+        private void EmitFiles(BufferedStream stream)
+        {
+            packets.Reset(false);
+            disk_awoker.Set();
+
+            while (!packets.finished)
+            {
+                stream.Write(packets.GetForNetw(), 0, disk_count);
+                packets.NetwDone();
+            }
+        }
+
+        MultipacketSwap packets = new MultipacketSwap();
+        EventWaitHandle disk_awoker = new EventWaitHandle(false, EventResetMode.AutoReset);
+        int disk_count;
+        FileBuffer disk_files;
+
+        void ThreadDiskIO()
+        {
+            while (true)
+            {
+                disk_awoker.WaitOne();
+
+                byte[] buffer;
+                if (!packets.listening)
+                    foreach (var file in (clip_data as FileBuffer).files)
+                        using (var io = File.OpenRead(file.source))
                         {
-                            stream.Write(MultipacketBuffer, 0, count);
-                            size += count;
+                            long size = 0;
+                            while (size < file.size && (disk_count = io.Read(buffer = packets.GetForDisk(), 
+                                0, buffer.Length)) > 0) { size += disk_count; packets.DiskDone(); }
                         }
-                    }
-                }
                 else
                 {
-                    BinFormatter.Serialize(stream, File.ReadAllBytes(file.source));
+                    // Kind little verbose for writing to disks...
+                    int iterF = 0; long iterB = 0;
+
+                    foreach (var file in disk_files.files)
+                    {
+                        progresser.Update(iterF++, file.name);
+
+                        using (var io = File.Create(file.destination))
+                        {
+                            long size = 0;
+                            buffer = packets.GetForDisk();
+                            while (size < file.size && disk_count > 0)
+                            {
+                                io.Write(buffer, 0, disk_count);
+                                size += disk_count;
+                                progresser.Update(iterB += disk_count);
+                                packets.DiskDone();
+                                buffer = packets.GetForDisk();
+                            }
+                        }
+
+                        File.SetLastWriteTime(file.destination, file.modified);
+                    }
                 }
+
+                packets.finished = true;
             }
         }
 
@@ -189,6 +259,7 @@ namespace SocketClipboard
         {
             (thread_emitter = new Thread(ThreadEmitter) { IsBackground = true, Priority = ThreadPriority.Lowest }).Start();
             (thread_listener = new Thread(ThreadListener) { IsBackground = true, Priority = ThreadPriority.Lowest }).Start();
+            (thread_disk = new Thread(ThreadDiskIO) { IsBackground = true, Priority = ThreadPriority.Lowest }).Start();
         }
 
         void StartServer()

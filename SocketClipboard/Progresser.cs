@@ -77,12 +77,15 @@ namespace SocketClipboard
             if (!enabled) return;
             Invoke(new Action(() =>
             {
+                var time = (DateTime.Now - start);
+                var speed = curByte / time.TotalSeconds;
                 var phase = curByte / (double)bytes;
-                var remaining = TimeSpan.FromSeconds((1 - phase) * (DateTime.Now - start).TotalSeconds / phase);
+                var remaining = TimeSpan.FromSeconds((1 - phase) * time.TotalSeconds / phase);
                 _prog.Value = (int)(phase * 100);
-                _l.Text = string.Format("{0}\r\n{1}", Utility.GetBytesReadable(curByte),
-                    Utility.GetBytesReadable(bytes));
-                _r.Text = string.Format("{0:P1}\r\n {1:D2} m {2:D2} s", phase, (int)remaining.TotalMinutes, remaining.Seconds);
+                _l.Text = string.Format("{2}ps\r\n{0}\r\n{1}", Utility.GetBytesReadable(curByte),
+                    Utility.GetBytesReadable(bytes), Utility.GetBytesReadable((long)speed));
+                _r.Text = string.Format("{0:P1}\r\n {1:D2} m {2:D2} s\r\n {3:D2} m {4:D2} s", phase
+                    , (int)time.TotalMinutes, time.Seconds, (int)remaining.TotalMinutes, remaining.Seconds);
             }));
         }
 
