@@ -10,8 +10,6 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Diagnostics;
-
-using System.Windows.Forms;
 using System.Reflection;
 
 namespace SocketClipboard
@@ -107,7 +105,6 @@ namespace SocketClipboard
             {
                 return null;
             }
-
         }
 
         public static readonly string DumpDestination = Path.GetTempPath() + "\\SocketDumps\\";

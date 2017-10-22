@@ -31,8 +31,9 @@ namespace SocketClipboard
 
             var args = Environment.GetCommandLineArgs();
             var m = new Main();
-            if (!args.Contains("--background"))
-                m.Show();
+            m.Show();
+            if (args.Contains("--background"))
+                m.Visible = false;
             Application.Run();
         }
 
@@ -44,7 +45,7 @@ namespace SocketClipboard
             if (!args.IsTerminating)
                 return;
             if (MessageBox.Show("This software runs to a trouble and need to quit. Restart the software?", "Sorry for this", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
-            {                
+            {
                 Application.Restart();
                 Environment.Exit(0);
             }
