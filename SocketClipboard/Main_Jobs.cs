@@ -16,7 +16,7 @@ namespace SocketClipboard
 
         private Thread thread_emitter, thread_listener;
 
-        static byte[] MultipacketBuffer = new byte[Utility.MultiPacketCap];
+        //static byte[] MultipacketBuffer = new byte[Utility.MultiPacketCap];
         static BinaryFormatter BinFormatter = new BinaryFormatter();
 
         void ThreadListener()
@@ -31,7 +31,7 @@ namespace SocketClipboard
 
                     var stream = server.AcceptTcpClient().GetStream();
 
-                    try
+//                    try
                     {
                         ClipBuffer f = BinFormatter.Deserialize(stream) as ClipBuffer;
 
@@ -60,8 +60,8 @@ namespace SocketClipboard
                         Log(NotificationType.Received, f);
                     }
 
-                    catch (Exception ex) { Log("Listening failed: " + ex.Message); continue; }
-
+                    //catch (Exception ex) { Log("Listening failed: " + ex.Message); continue; }
+                    
                     stream.Close();
                 }
 
@@ -73,26 +73,54 @@ namespace SocketClipboard
 
         private void ListenToFiles(NetworkStream stream, FileBuffer files)
         {
-            int iterF = 0; long iterB = 0;
+            ListenBytes.Clear();
+            ListenBytesDone = false;
+            ThreadPool.QueueUserWorkItem((x) => ListenFilesWrite(files));
 
-            foreach (var file in files.files)
+            while (!ListenBytesDone)
             {
-                progresser.Update(iterF++, file.name);
+                ListenBytes.Enqueue(stream);
+            }
+        }
 
+        StreamQueue ListenBytes = new StreamQueue();
+        bool ListenBytesDone = false;
+
+        static int SafeSubstract(long a, long b)
+        {
+            return (a - b > int.MaxValue ? int.MaxValue : (int)(a - b));
+        }
+
+        void ListenFilesWrite(FileBuffer files)
+        {
+            int iterF = 0; long iterB = 0;
+            // try
+            {
+                foreach (var file in files.files)
+                {
+                    progresser.Update(iterF++, file.name);
                     using (var io = File.Create(file.destination))
                     {
-                        long size = 0;
-                        int count = 0;
-                        while (size < file.size && (count = stream.Read(MultipacketBuffer, 0, MultipacketBuffer.Length)) > 0)
+                        //  using (var iob = new BufferedStream(io, 1024 * 128))
                         {
-                            io.Write(MultipacketBuffer, 0, count);
-                            size += count;
-                            progresser.Update(iterB += count);
+                            long size = 0; long count;
+                            while (size < file.size)
+                            {
+                                // while (ListenBytes.Count == 0 && !ListenBytesDone) { }
+
+                                if (ListenBytes.Count > 0)
+                                {
+                                    size += count = ListenBytes.Dequeue(io, SafeSubstract(file.size, size));
+                                    progresser.Update(iterB += count);
+                                }
+                            }
                         }
                     }
-
-                File.SetLastWriteTime(file.destination, file.modified);
+                    File.SetLastWriteTime(file.destination, file.modified);
+                }
             }
+            //catch (Exception) { }
+            ListenBytesDone = true;
         }
 
         void ThreadEmitter()
@@ -154,21 +182,36 @@ namespace SocketClipboard
 
         private void EmitFiles(NetworkStream stream)
         {
-            var files = clip_data as FileBuffer;
-            foreach (var file in files.files)
+            EmitBytesDone = false;
+            EmitBytes.Clear();
+            ThreadPool.QueueUserWorkItem((x) => EmitFilesRead(clip_data as FileBuffer));
+
+            while (!EmitBytesDone)
             {
+                while (EmitBytes.Count > 0)
+                {
+                    EmitBytes.Dequeue(stream);
+                }
+            }
+        }
+
+        StreamQueue EmitBytes = new StreamQueue();
+        bool EmitBytesDone = false;
+
+        void EmitFilesRead(FileBuffer files)
+        {
+            try
+            {
+                foreach (var file in files.files)
                     using (var io = File.OpenRead(file.source))
                     {
-                        long size = 0;
-                        int count = 0;
-                        while (size < file.size && (count = io.Read(MultipacketBuffer, 0, MultipacketBuffer.Length)) > 0)
-                        {
-                            stream.Write(MultipacketBuffer, 0, count);
-                            size += count;
-                        }
+                        var size = 0;
+                        while ((size += EmitBytes.Enqueue(io, SafeSubstract(file.size, size))) < file.size) { }
                     }
 
             }
+            catch (Exception) { }
+            EmitBytesDone = true;
         }
 
         void StartThreader()

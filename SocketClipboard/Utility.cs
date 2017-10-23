@@ -37,7 +37,7 @@ namespace SocketClipboard
                 Text = input,
             };
 
-            
+
             Button okButton = new Button()
             {
                 DialogResult = DialogResult.OK,
@@ -47,7 +47,7 @@ namespace SocketClipboard
                 Location = new Point(size.Width - 80 - 80, 39),
             };
 
-            
+
             Button cancelButton = new Button()
             {
                 DialogResult = DialogResult.Cancel,
@@ -213,7 +213,7 @@ namespace SocketClipboard
             }
         }
 
-        public static Version GetVersion ()
+        public static Version GetVersion()
         {
             return AssemblyName.GetAssemblyName(Assembly.GetExecutingAssembly().Location).Version;
         }
@@ -300,5 +300,106 @@ namespace SocketClipboard
                 return base.Active;
             }
         }
+    }
+
+    public class StreamQueue
+    {
+        byte[] _array = new byte[64];
+        int _head;
+        int _tail;
+        int _size;       // Number of elements.
+
+        public int Count
+        {
+            get { return _size; }
+        }
+
+        // Removes all Objects from the queue.
+        public virtual void Clear()
+        {
+            _head = 0;
+            _tail = 0;
+            _size = 0;
+        }
+
+        public virtual void Enqueue(byte obj)
+        {
+            if (_size == _array.Length)
+            {
+                SetCapacity(_size << 1);
+            }
+
+            _array[_tail] = obj;
+            _tail = (_tail + 1) % _array.Length;
+            _size++;
+        }
+
+        const int BufferBlock = 1024 * 256;
+
+
+        public byte Dequeue()
+        {
+            if (_size == 0)
+                throw new InvalidOperationException("Invalid operation");
+
+            byte removed = _array[_head];
+            _head = (_head + 1) % _array.Length;
+            _size--;
+            return removed;
+        }
+
+        public int Enqueue(Stream stream, int maxSize = int.MaxValue)
+        {
+            lock (_array)
+            {
+                if ((_size + BufferBlock) > _array.Length)
+                {
+                    SetCapacity(Math.Max((_size + BufferBlock), _size << 1));
+                }
+
+                var count = stream.Read(_array, _tail, Math.Min(Math.Min(maxSize, BufferBlock), _array.Length - _tail));
+                _tail = (_tail + count) % _array.Length;
+                _size += count;
+                return count;
+            }
+        }
+
+        public int Dequeue(Stream stream, int maxSize = int.MaxValue)
+        {
+            if (_size == 0)
+                return 0;
+
+            lock (_array)
+            {
+                int count;
+                stream.Write(_array, _head, count = Math.Min(Math.Min(BufferBlock, _size), Math.Min(maxSize, _array.Length - _head)));
+                _head = (_head + count) % _array.Length;
+                _size -= count;
+                return count;
+            }
+        }
+
+        private void SetCapacity(int capacity)
+        {
+            byte[] newarray = new byte[capacity];
+            if (_size > 0)
+            {
+                if (_head < _tail)
+                {
+                    Array.Copy(_array, _head, newarray, 0, _size);
+                }
+                else
+                {
+                    Array.Copy(_array, _head, newarray, 0, _array.Length - _head);
+                    Array.Copy(_array, 0, newarray, _array.Length - _head, _tail);
+                }
+            }
+
+            _array = newarray;
+            _head = 0;
+            _tail = (_size == capacity) ? 0 : _size;
+        }
+
+
     }
 }

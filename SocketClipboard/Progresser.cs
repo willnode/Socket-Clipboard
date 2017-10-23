@@ -79,7 +79,7 @@ namespace SocketClipboard
             {
                 var time = (DateTime.Now - start);
                 var speed = curByte / time.TotalSeconds;
-                var phase = curByte / (double)bytes;
+                var phase = Math.Min(curByte / (double)bytes, 1.0);
                 var remaining = TimeSpan.FromSeconds((1 - phase) * time.TotalSeconds / phase);
                 _prog.Value = (int)(phase * 100);
                 _l.Text = string.Format("{2}ps\r\n{0}\r\n{1}", Utility.GetBytesReadable(curByte),

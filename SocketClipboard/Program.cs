@@ -52,7 +52,6 @@ namespace SocketClipboard
             else
             {
                 MessageBox.Show(ex.ToString(), "Useful information to the dev (please screenshot)");
-                Environment.Exit(0);
             }
         }
     }
