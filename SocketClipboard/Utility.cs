@@ -302,19 +302,34 @@ namespace SocketClipboard
         }
     }
 
+    /// <summary>
+    /// StreamQueue provides an alternative implementation to High speed 
+    /// IO/Stream operations that works on multitheaded environment.
+    /// Internally use 'circular array' in the implementation.
+    /// </summary>
     public class StreamQueue
     {
-        byte[] _array = new byte[64];
-        int _head;
-        int _tail;
+        byte[] _array = new byte[64]; // array save
+        int _head;       // head index
+        int _tail;       // tail index
         int _size;       // Number of elements.
 
+        /// <summary>
+        /// Buffer size for stream operation
+        /// </summary>
+        const int BufferBlock = 1024 * 256;
+
+        /// <summary>
+        /// Get total bytes in queue
+        /// </summary>
         public int Count
         {
             get { return _size; }
         }
 
-        // Removes all Objects from the queue.
+        /// <summary>
+        /// Remove all bytes in queue
+        /// </summary>
         public virtual void Clear()
         {
             _head = 0;
@@ -322,6 +337,9 @@ namespace SocketClipboard
             _size = 0;
         }
 
+        /// <summary>
+        /// Remove all bytes in queue and discard waste memory to GC.
+        /// </summary>
         public void Clean ()
         {
             _head = 0;
@@ -330,6 +348,9 @@ namespace SocketClipboard
             _array = new byte[64];
         }
 
+        /// <summary>
+        /// Push a byte to queue.
+        /// </summary>
         public virtual void Enqueue(byte obj)
         {
             if (_size == _array.Length)
@@ -341,9 +362,11 @@ namespace SocketClipboard
             _tail = (_tail + 1) % _array.Length;
             _size++;
         }
-
-        const int BufferBlock = 1024 * 256;
-
+        
+        /// <summary>
+        /// Pop a byte from queue.
+        /// </summary>
+        /// <returns></returns>
         public byte Dequeue()
         {
             if (_size == 0)
@@ -355,6 +378,12 @@ namespace SocketClipboard
             return removed;
         }
 
+        /// <summary>
+        /// Read and push stream bytes to queue. Can be multi-threaded.
+        /// </summary>
+        /// <param name="stream">The stream to push</param>
+        /// <param name="maxSize">Maximum bytes size for this operation</param>
+        /// <returns>Size of pushed bytes</returns>
         public int Enqueue(Stream stream, long maxSize = int.MaxValue)
         {
             if ((_size + BufferBlock) > _array.Length)
@@ -374,10 +403,16 @@ namespace SocketClipboard
             return count;
         }
 
+        /// <summary>
+        /// Pop and write stream bytes to queue. Can be multi-threaded.
+        /// </summary>
+        /// <param name="stream">The stream to pop</param>
+        /// <param name="maxSize">Maximum bytes size for this operation</param>
+        /// <returns>Size of popped bytes</returns>
         public int Dequeue(Stream stream, long maxSize = int.MaxValue)
         {
             if (_size == 0)
-                return 0;
+                return 0; // It's okay to be empty
 
             int count = Math.Min(Math.Min(BufferBlock, _size), Math.Min((int)maxSize, _array.Length - _head));
 
@@ -391,6 +426,9 @@ namespace SocketClipboard
             return count;
         }
 
+        /// <summary>
+        /// Set new capacity
+        /// </summary>
         private void SetCapacity(int capacity)
         {
             lock (_array)
