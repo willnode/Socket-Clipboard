@@ -46,6 +46,11 @@ namespace SocketClipboard
             Opacity = 1;
             Visible = true;
             start = DateTime.Now;
+
+            _prog.Value = 0;
+            _l.Text = string.Format("{0}ps\r\n{0}\r\n{0}", Utility.GetBytesReadable(0));
+            _r.Text = string.Format("{0:P1}\r\n {1} m {1} s\r\n {1} m {1} s", 0
+                , "--");
         }
 
         public void Done()

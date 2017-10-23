@@ -322,6 +322,14 @@ namespace SocketClipboard
             _size = 0;
         }
 
+        public void Clean ()
+        {
+            _head = 0;
+            _tail = 0;
+            _size = 0;
+            _array = new byte[64];
+        }
+
         public virtual void Enqueue(byte obj)
         {
             if (_size == _array.Length)
@@ -336,7 +344,6 @@ namespace SocketClipboard
 
         const int BufferBlock = 1024 * 256;
 
-
         public byte Dequeue()
         {
             if (_size == 0)
@@ -348,56 +355,64 @@ namespace SocketClipboard
             return removed;
         }
 
-        public int Enqueue(Stream stream, int maxSize = int.MaxValue)
+        public int Enqueue(Stream stream, long maxSize = int.MaxValue)
         {
+            if ((_size + BufferBlock) > _array.Length)
+            {
+                SetCapacity(Math.Max((_size + BufferBlock), _size << 1));
+            }
+
+            var count = Math.Min(Math.Min((int)maxSize, BufferBlock), _array.Length - _tail);
+
             lock (_array)
             {
-                if ((_size + BufferBlock) > _array.Length)
-                {
-                    SetCapacity(Math.Max((_size + BufferBlock), _size << 1));
-                }
-
-                var count = stream.Read(_array, _tail, Math.Min(Math.Min(maxSize, BufferBlock), _array.Length - _tail));
+                count = stream.Read(_array, _tail, count);
                 _tail = (_tail + count) % _array.Length;
                 _size += count;
-                return count;
             }
+
+            return count;
         }
 
-        public int Dequeue(Stream stream, int maxSize = int.MaxValue)
+        public int Dequeue(Stream stream, long maxSize = int.MaxValue)
         {
             if (_size == 0)
                 return 0;
 
+            int count = Math.Min(Math.Min(BufferBlock, _size), Math.Min((int)maxSize, _array.Length - _head));
+
             lock (_array)
             {
-                int count;
-                stream.Write(_array, _head, count = Math.Min(Math.Min(BufferBlock, _size), Math.Min(maxSize, _array.Length - _head)));
+                stream.Write(_array, _head, count);
                 _head = (_head + count) % _array.Length;
                 _size -= count;
-                return count;
             }
+
+            return count;
         }
 
         private void SetCapacity(int capacity)
         {
-            byte[] newarray = new byte[capacity];
-            if (_size > 0)
+            lock (_array)
             {
-                if (_head < _tail)
+                byte[] newarray = new byte[capacity];
+                if (_size > 0)
                 {
-                    Array.Copy(_array, _head, newarray, 0, _size);
+                    if (_head < _tail)
+                    {
+                        Array.Copy(_array, _head, newarray, 0, _size);
+                    }
+                    else
+                    {
+                        Array.Copy(_array, _head, newarray, 0, _array.Length - _head);
+                        Array.Copy(_array, 0, newarray, _array.Length - _head, _tail);
+                    }
                 }
-                else
-                {
-                    Array.Copy(_array, _head, newarray, 0, _array.Length - _head);
-                    Array.Copy(_array, 0, newarray, _array.Length - _head, _tail);
-                }
-            }
 
-            _array = newarray;
-            _head = 0;
-            _tail = (_size == capacity) ? 0 : _size;
+                _array = newarray;
+                _head = 0;
+                _tail = (_size == capacity) ? 0 : _size;
+            }
         }
 
 

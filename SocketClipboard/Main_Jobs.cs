@@ -31,7 +31,7 @@ namespace SocketClipboard
 
                     var stream = server.AcceptTcpClient().GetStream();
 
-//                    try
+                    try
                     {
                         ClipBuffer f = BinFormatter.Deserialize(stream) as ClipBuffer;
 
@@ -51,6 +51,8 @@ namespace SocketClipboard
                             ListenToFiles(stream, files);
 
                             progresser.Done();
+
+                            ListenBytes.Clean();
                         }
 
                         Invoke(new Action(f.ToClipboard));
@@ -60,7 +62,7 @@ namespace SocketClipboard
                         Log(NotificationType.Received, f);
                     }
 
-                    //catch (Exception ex) { Log("Listening failed: " + ex.Message); continue; }
+                    catch (Exception ex) { Log("Listening failed: " + ex.Message); continue; }
                     
                     stream.Close();
                 }
@@ -163,6 +165,8 @@ namespace SocketClipboard
                             }
 
                             stream.Close();
+
+                            EmitBytes.Clean();
                         }
                     }
                     catch (Exception ex)

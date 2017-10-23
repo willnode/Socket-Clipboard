@@ -120,6 +120,8 @@ namespace SocketClipboard
                 {
                     if (MessageBox.Show("Starting server across LAN requires an admin access so we can bypass firewall. Restart as administrator?", "Permission Grant", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
                         Utility.HaveAdminAccess = true;
+                    else
+                        return;
                 }
                 Process.Start("netsh", "http add urlacl url=" + URL + " user=Everyone listen=yes").WaitForExit();
                 Process.Start("netsh", "advfirewall firewall add rule name=\"SocketClipboard Grant\" dir=in action=allow protocol=TCP localport=" + port.ToString()).WaitForExit();
